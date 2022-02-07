@@ -5,7 +5,6 @@
 |
 | The full license is in the file LICENSE, distributed with this software.
 |----------------------------------------------------------------------------*/
-#include <cppy/cppy.h>
 #include <kiwi/kiwi.h>
 #include "util.h"
 
@@ -27,118 +26,115 @@ namespace
 {
 
 
-void
-strength_dealloc( PyObject* self )
+static void
+strength_dealloc( void* obj )
 {
-	Py_TYPE( self )->tp_free( self );
+	// Py_TYPE( self )->tp_free( self );
 }
 
 
-PyObject*
-strength_weak( strength* self )
+static HPy
+strength_weak(HPyContext *ctx, HPy h_self, void *closure)
 {
-	return PyFloat_FromDouble( kiwi::strength::weak );
+	return HPyFloat_FromDouble( ctx, kiwi::strength::weak );
 }
 
 
-PyObject*
-strength_medium( strength* self )
+static HPy
+strength_medium(HPyContext *ctx, HPy h_self, void *closure)
 {
-	return PyFloat_FromDouble( kiwi::strength::medium );
+	return HPyFloat_FromDouble( ctx, kiwi::strength::medium );
 }
 
 
-PyObject*
-strength_strong( strength* self )
+static HPy
+strength_strong(HPyContext *ctx, HPy h_self, void *closure)
 {
-	return PyFloat_FromDouble( kiwi::strength::strong );
+	return HPyFloat_FromDouble( ctx, kiwi::strength::strong );
 }
 
 
-PyObject*
-strength_required( strength* self )
+static HPy
+strength_required(HPyContext *ctx, HPy h_self, void *closure)
 {
-	return PyFloat_FromDouble( kiwi::strength::required );
+	return HPyFloat_FromDouble( ctx, kiwi::strength::required );
 }
 
 
-PyObject*
-strength_create( strength* self, PyObject* args )
+static HPy
+strength_create( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
 {
-	PyObject* pya;
-	PyObject* pyb;
-	PyObject* pyc;
-	PyObject* pyw = 0;
-	if( !PyArg_ParseTuple( args, "OOO|O", &pya, &pyb, &pyc, &pyw ) )
-		return 0;
+	HPy pya;
+	HPy pyb;
+	HPy pyc;
+	HPy pyw = HPy_NULL;
+	if( !HPyArg_Parse(ctx, NULL, args, nargs, "OOO|O", &pya, &pyb, &pyc, &pyw ) )
+		return HPy_NULL;
 	double a, b, c;
 	double w = 1.0;
-	if( !convert_to_double( pya, a ) )
-		return 0;
-	if( !convert_to_double( pyb, b ) )
-		return 0;
-	if( !convert_to_double( pyc, c ) )
-		return 0;
-	if( pyw && !convert_to_double( pyw, w ) )
-		return 0;
-	return PyFloat_FromDouble( kiwi::strength::create( a, b, c, w ) );
+	if( !convert_to_double( ctx, pya, a ) )
+		return HPy_NULL;
+	if( !convert_to_double( ctx, pyb, b ) )
+		return HPy_NULL;
+	if( !convert_to_double( ctx, pyc, c ) )
+		return HPy_NULL;
+	if( !HPy_IsNull(pyw) && !convert_to_double( ctx, pyw, w ) )
+		return HPy_NULL;
+	return HPyFloat_FromDouble( ctx, kiwi::strength::create( a, b, c, w ) );
 }
 
 
-static PyGetSetDef
-strength_getset[] = {
-	{ "weak", ( getter )strength_weak, 0,
-	  "The predefined weak strength." },
-	{ "medium", ( getter )strength_medium, 0,
-	  "The predefined medium strength." },
-	{ "strong", ( getter )strength_strong, 0,
-	  "The predefined strong strength." },
-	{ "required", ( getter )strength_required, 0,
-	  "The predefined required strength." },
-	{ 0 } // sentinel
+HPyDef_GET(strength_weak_def, "weak", strength_weak, .doc = "The predefined weak strength.")
+HPyDef_GET(strength_medium_def, "medium", strength_medium, .doc = "The predefined medium strength.")
+HPyDef_GET(strength_strong_def, "strong", strength_strong, .doc = "The predefined strong strength.")
+HPyDef_GET(strength_required_def, "required", strength_required, .doc = "The predefined required strength.")
+
+HPyDef_METH(strength_create_def, "create", strength_create, HPyFunc_VARARGS,
+	.doc = "Create a strength from constituent values and optional weight.")
+
+HPyDef_SLOT(strength_dealloc_def, strength_dealloc, HPy_tp_destroy)
+
+static HPyDef* strength_defines[] = {
+    // slots
+	&strength_dealloc_def,
+
+	// getsets
+	&strength_weak_def,
+	&strength_medium_def,
+	&strength_strong_def,
+	&strength_required_def,
+
+	// methods
+	&strength_create_def,
+	NULL
 };
-
-
-static PyMethodDef
-strength_methods[] = {
-	{ "create", ( PyCFunction )strength_create, METH_VARARGS,
-	  "Create a strength from constituent values and optional weight." },
-	{ 0 } // sentinel
-};
-
-
-
-static PyType_Slot strength_Type_slots[] = {
-    { Py_tp_dealloc, void_cast( strength_dealloc ) },      /* tp_dealloc */
-    { Py_tp_getset, void_cast( strength_getset ) },        /* tp_getset */
-    { Py_tp_methods, void_cast( strength_methods ) },      /* tp_methods */
-    { Py_tp_alloc, void_cast( PyType_GenericAlloc ) },     /* tp_alloc */
-    { Py_tp_free, void_cast( PyObject_Del ) },          /* tp_free */
-    { 0, 0 },
-};
-
-
 } // namespace
 
 
 // Initialize static variables (otherwise the compiler eliminates them)
-PyTypeObject* strength::TypeObject = NULL;
+HPy strength::TypeObject = HPy_NULL;
 
 
-PyType_Spec strength::TypeObject_Spec = {
-	"kiwisolver.strength",             /* tp_name */
-	sizeof( strength ),                /* tp_basicsize */
-	0,                                 /* tp_itemsize */
-	Py_TPFLAGS_DEFAULT,                /* tp_flags */
-    strength_Type_slots                /* slots */
+HPyType_Spec strength::TypeObject_Spec = {
+	.name = "kiwisolver.strength",
+	.basicsize = sizeof( strength ),
+	.itemsize = 0,
+	.flags = HPy_TPFLAGS_DEFAULT,
+    .defines = strength_defines
 };
 
 
-bool strength::Ready()
+bool strength::Ready( HPyContext *ctx, HPy m )
 {
     // The reference will be handled by the module to which we will add the type
-	TypeObject = pytype_cast( PyType_FromSpec( &TypeObject_Spec ) );
-    if( !TypeObject )
+    if (!HPyHelpers_AddType(ctx, m, "strength", &TypeObject_Spec, NULL)) {
+        return false;
+    }
+
+    TypeObject = HPy_GetAttr_s(ctx, m, "strength");
+	strength* s;
+    if( HPy_IsNull(TypeObject) || 
+		HPy_SetAttr_s(ctx, m, "strength", HPy_New(ctx, TypeObject, &s)) )
     {
         return false;
     }

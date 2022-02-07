@@ -5,7 +5,6 @@
 |
 | The full license is in the file LICENSE, distributed with this software.
 |----------------------------------------------------------------------------*/
-#include <cppy/cppy.h>
 #include <kiwi/kiwi.h>
 #include "symbolics.h"
 #include "types.h"
@@ -20,32 +19,44 @@ namespace
 {
 
 
-PyObject*
-Variable_new( PyTypeObject* type, PyObject* args, PyObject* kwargs )
+static HPy
+Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
 {
 	static const char *kwlist[] = { "name", "context", 0 };
-	PyObject* context = 0;
-	PyObject* name = 0;
+	HPy context = HPy_NULL;
+	HPy name = HPy_NULL;
 
-	if( !PyArg_ParseTupleAndKeywords(
-		args, kwargs, "|OO:__new__", const_cast<char**>( kwlist ),
+    HPyTracker ht;
+    if (!HPyArg_ParseKeywords(ctx, &ht, args, nargs,
+		kwargs, "|OO:__new__", (const char **) kwlist,
 		&name, &context ) )
-		return 0;
+		return HPy_NULL;
 
-	cppy::ptr pyvar( PyType_GenericNew( type, args, kwargs ) );
-	if( !pyvar )
-		return 0;
+	Variable* self;
+	HPy pyvar = HPy_New(ctx, type, &self);
+	if( HPy_IsNull(pyvar) )
+		return HPy_NULL;
 
-	Variable* self = reinterpret_cast<Variable*>( pyvar.get() );
-	self->context = cppy::xincref( context );
+	self->context = HPy_Dup( ctx, context );
 
-	if( name != 0 )
+	if( !HPy_IsNull( name ) )
 	{
-		if( !PyUnicode_Check( name ) )
-			return cppy::type_error( name, "str" );
+		if( !HPyUnicode_Check( ctx, name ) ) {
+            // PyErr_Format(
+            //     PyExc_TypeError,
+            //     "Expected object of type `str`. Got object of type `%s` instead.",
+            //     name->ob_type->tp_name );
+            HPyErr_SetString( ctx,
+                ctx->h_TypeError,
+                "Expected object of type `str`.");
+            HPyTracker_Close(ctx, ht);
+            return HPy_NULL;
+        }
 		std::string c_name;
-		if( !convert_pystr_to_str(name, c_name) )
-			return 0;  // LCOV_EXCL_LINE
+		if( !convert_pystr_to_str(ctx, name, c_name) ) {
+			HPyTracker_Close(ctx, ht);
+			return HPy_NULL;  // LCOV_EXCL_LINE
+		}
 		new( &self->variable ) kiwi::Variable( c_name );
 	}
 	else
@@ -53,214 +64,245 @@ Variable_new( PyTypeObject* type, PyObject* args, PyObject* kwargs )
 		new( &self->variable ) kiwi::Variable();
 	}
 
-	return pyvar.release();
+	return pyvar;
 }
 
 
-void
-Variable_clear( Variable* self )
-{
-	Py_CLEAR( self->context );
-}
+// static void
+// Variable_clear( HPyContext *ctx, Variable* self )
+// {
+// 	HPy_CLEAR( ctx, self->context );
+// }
 
 
-int
-Variable_traverse( Variable* self, visitproc visit, void* arg )
+static int
+Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 {
-	Py_VISIT( self->context );
-#if PY_VERSION_HEX >= 0x03090000
+//     Variable* self = (Variable*) obj;
+// 	HPy_VISIT( self->context );
+// #if PY_VERSION_HEX >= 0x03090000
     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    Py_VISIT(Py_TYPE(self));
-#endif
+    // HPy_VISIT(HPy_Type(ctx, self));
+// #endif
 	return 0;
 }
 
 
-void
-Variable_dealloc( Variable* self )
+static void
+Variable_dealloc( void *obj )
 {
-	PyObject_GC_UnTrack( self );
-	Variable_clear( self );
+	Variable* self = (Variable*)obj;
+	// PyObject_GC_UnTrack( self );
+	// Variable_clear( ctx, self );
 	self->variable.~Variable();
-	Py_TYPE( self )->tp_free( pyobject_cast( self ) );
+	// Py_TYPE( self )->tp_free( pyobject_cast( self ) );
 }
 
 
-PyObject*
-Variable_repr( Variable* self )
+static HPy
+Variable_repr( HPyContext *ctx, HPy h_self )
 {
-	return PyUnicode_FromString( self->variable.name().c_str() );
+    Variable* self = Variable::AsStruct( ctx, h_self );
+	return HPyUnicode_FromString( ctx, self->variable.name().c_str() );
 }
 
 
-PyObject*
-Variable_name( Variable* self )
+static HPy
+Variable_name( HPyContext *ctx, HPy h_self )
 {
-	return PyUnicode_FromString( self->variable.name().c_str() );
+    Variable* self = Variable::AsStruct( ctx, h_self );
+	return HPyUnicode_FromString( ctx, self->variable.name().c_str() );
 }
 
 
-PyObject*
-Variable_setName( Variable* self, PyObject* pystr )
+static HPy
+Variable_setName( HPyContext *ctx, HPy h_self, HPy pystr )
 {
-	if( !PyUnicode_Check( pystr ) )
-		return cppy::type_error( pystr, "str" );
-   std::string str;
-   if( !convert_pystr_to_str( pystr, str ) )
-       return 0;
-   self->variable.setName( str );
-	Py_RETURN_NONE;
-}
-
-
-PyObject*
-Variable_context( Variable* self )
-{
-	if( self->context )
-		return cppy::incref( self->context );
-	Py_RETURN_NONE;
-}
-
-
-PyObject*
-Variable_setContext( Variable* self, PyObject* value )
-{
-	if( value != self->context )
-	{
-		PyObject* temp = self->context;
-		self->context = cppy::incref( value );
-		Py_XDECREF( temp );
+	Variable* self = Variable::AsStruct( ctx, h_self );
+	if( !HPyUnicode_Check( ctx, pystr ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `str`. Got object of type `%s` instead.",
+		//     expected,
+		//     pystr->ob_type->tp_name );
+		HPyErr_SetString( ctx,
+			ctx->h_TypeError,
+			"Expected object of type `str`.");
+		return HPy_NULL;
 	}
-	Py_RETURN_NONE;
+	std::string str;
+	if( !convert_pystr_to_str( ctx, pystr, str ) )
+		return HPy_NULL;
+	self->variable.setName( str );
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Variable_value( Variable* self )
+static HPy
+Variable_context( HPyContext *ctx, HPy h_self )
 {
-	return PyFloat_FromDouble( self->variable.value() );
+    Variable* self = Variable::AsStruct( ctx, h_self );
+	if( !HPy_IsNull(self->context) )
+		return HPy_Dup( ctx, self->context );
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Variable_add( PyObject* first, PyObject* second )
+static HPy
+Variable_setContext( HPyContext *ctx, HPy h_self, HPy value )
 {
-	return BinaryInvoke<BinaryAdd, Variable>()( first, second );
+    Variable* self = Variable::AsStruct( ctx, h_self );
+	if( !HPy_Is( ctx, value, self->context ) )
+	{
+		HPy temp = self->context;
+		self->context = HPy_Dup( ctx, value );
+		HPy_Close( ctx, temp );
+	}
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Variable_sub( PyObject* first, PyObject* second )
+static HPy
+Variable_value( HPyContext *ctx, HPy h_self )
 {
-	return BinaryInvoke<BinarySub, Variable>()( first, second );
+    Variable* self = Variable::AsStruct( ctx, h_self );
+	return HPyFloat_FromDouble( ctx, self->variable.value() );
 }
 
 
-PyObject*
-Variable_mul( PyObject* first, PyObject* second )
+static HPy
+Variable_add( HPyContext *ctx, HPy first, HPy second )
 {
-	return BinaryInvoke<BinaryMul, Variable>()( first, second );
+	return BinaryInvoke<BinaryAdd, Variable>()( ctx, first, second );
 }
 
 
-PyObject*
-Variable_div( PyObject* first, PyObject* second )
+static HPy
+Variable_sub( HPyContext *ctx, HPy first, HPy second )
 {
-	return BinaryInvoke<BinaryDiv, Variable>()( first, second );
+	return BinaryInvoke<BinarySub, Variable>()( ctx, first, second );
 }
 
 
-PyObject*
-Variable_neg( PyObject* value )
+static HPy
+Variable_mul( HPyContext *ctx, HPy first, HPy second )
 {
-	return UnaryInvoke<UnaryNeg, Variable>()( value );
+	return BinaryInvoke<BinaryMul, Variable>()( ctx, first, second );
 }
 
 
-PyObject*
-Variable_richcmp( PyObject* first, PyObject* second, int op )
+static HPy
+Variable_div( HPyContext *ctx, HPy first, HPy second )
+{
+	return BinaryInvoke<BinaryDiv, Variable>()( ctx, first, second );
+}
+
+
+static HPy
+Variable_neg( HPyContext *ctx, HPy value )
+{
+	return UnaryInvoke<UnaryNeg, Variable>()( ctx, value );
+}
+
+
+static HPy
+Variable_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
 {
 	switch( op )
 	{
-		case Py_EQ:
-			return BinaryInvoke<CmpEQ, Variable>()( first, second );
-		case Py_LE:
-			return BinaryInvoke<CmpLE, Variable>()( first, second );
-		case Py_GE:
-			return BinaryInvoke<CmpGE, Variable>()( first, second );
+		case HPy_EQ:
+			return BinaryInvoke<CmpEQ, Variable>()( ctx, first, second );
+		case HPy_LE:
+			return BinaryInvoke<CmpLE, Variable>()( ctx, first, second );
+		case HPy_GE:
+			return BinaryInvoke<CmpGE, Variable>()( ctx, first, second );
 		default:
 			break;
 	}
-	PyErr_Format(
-		PyExc_TypeError,
-		"unsupported operand type(s) for %s: "
-		"'%.100s' and '%.100s'",
-		pyop_str( op ),
-		Py_TYPE( first )->tp_name,
-		Py_TYPE( second )->tp_name
-	);
-	return 0;
+	// PyErr_Format(
+	// 	PyExc_TypeError,
+	// 	"unsupported operand type(s) for %s: "
+	// 	"'%.100s' and '%.100s'",
+	// 	pyop_str( op ),
+	// 	Py_TYPE( first )->tp_name,
+	// 	Py_TYPE( second )->tp_name
+	// );
+    HPyErr_SetString( ctx, ctx->h_TypeError, "unsupported operand type(s)" );
+	return HPy_NULL;
 }
 
 
-static PyMethodDef
-Variable_methods[] = {
-	{ "name", ( PyCFunction )Variable_name, METH_NOARGS,
-	  "Get the name of the variable." },
-	{ "setName", ( PyCFunction )Variable_setName, METH_O,
-	  "Set the name of the variable." },
-	{ "context", ( PyCFunction )Variable_context, METH_NOARGS,
-	  "Get the context object associated with the variable." },
-	{ "setContext", ( PyCFunction )Variable_setContext, METH_O,
-	  "Set the context object associated with the variable." },
-	{ "value", ( PyCFunction )Variable_value, METH_NOARGS,
-	  "Get the current value of the variable." },
-	{ 0 } // sentinel
+HPyDef_METH(Variable_name_def, "name", Variable_name, HPyFunc_NOARGS,
+	.doc = "Get the name of the variable.")
+HPyDef_METH(Variable_setName_def, "setName", Variable_setName, HPyFunc_O,
+	.doc = "Set the name of the variable.")
+HPyDef_METH(Variable_context_def, "context", Variable_context, HPyFunc_NOARGS,
+	.doc = "Get the context object associated with the variable.")
+HPyDef_METH(Variable_setContext_def, "setContext", Variable_setContext, HPyFunc_O,
+	.doc = "Set the context object associated with the variable.")
+HPyDef_METH(Variable_value_def, "value", Variable_value, HPyFunc_NOARGS,
+	.doc = "Get the current value of the variable.")
+
+
+HPyDef_SLOT(Variable_dealloc_def, Variable_dealloc, HPy_tp_destroy)
+HPyDef_SLOT(Variable_traverse_def, Variable_traverse, HPy_tp_traverse)
+HPyDef_SLOT(Variable_repr_def, Variable_repr, HPy_tp_repr)
+HPyDef_SLOT(Variable_richcmp_def, Variable_richcmp, HPy_tp_richcompare)
+HPyDef_SLOT(Variable_new_def, Variable_new, HPy_tp_new)
+HPyDef_SLOT(Variable_add_def, Variable_add, HPy_nb_add)
+HPyDef_SLOT(Variable_sub_def, Variable_sub, HPy_nb_subtract)
+HPyDef_SLOT(Variable_mul_def, Variable_mul, HPy_nb_multiply)
+HPyDef_SLOT(Variable_neg_def, Variable_neg, HPy_nb_negative)
+HPyDef_SLOT(Variable_div_def, Variable_div, HPy_nb_true_divide)
+// HPyDef_SLOT(Variable_clear_def, Variable_clear, HPy_tp_clear)
+
+static HPyDef* Variable_defines[] = {
+    // slots
+	&Variable_dealloc_def,
+	&Variable_traverse_def,
+	&Variable_repr_def,
+	&Variable_richcmp_def,
+	&Variable_new_def,
+	&Variable_add_def,
+	&Variable_sub_def,
+	&Variable_mul_def,
+	&Variable_neg_def,
+	&Variable_div_def,
+	// &Variable_clear_def
+
+    // methods
+	&Variable_name_def,
+	&Variable_setName_def,
+	&Variable_context_def,
+	&Variable_setContext_def,
+	&Variable_value_def,
+	NULL
 };
-
-
-static PyType_Slot Variable_Type_slots[] = {
-    { Py_tp_dealloc, void_cast( Variable_dealloc ) },      /* tp_dealloc */
-    { Py_tp_traverse, void_cast( Variable_traverse ) },    /* tp_traverse */
-    { Py_tp_clear, void_cast( Variable_clear ) },          /* tp_clear */
-    { Py_tp_repr, void_cast( Variable_repr ) },            /* tp_repr */
-    { Py_tp_richcompare, void_cast( Variable_richcmp ) },  /* tp_richcompare */
-    { Py_tp_methods, void_cast( Variable_methods ) },      /* tp_methods */
-    { Py_tp_new, void_cast( Variable_new ) },              /* tp_new */
-    { Py_tp_alloc, void_cast( PyType_GenericAlloc ) },     /* tp_alloc */
-    { Py_tp_free, void_cast( PyObject_GC_Del ) },          /* tp_free */
-    { Py_nb_add, void_cast( Variable_add ) },              /* nb_add */
-    { Py_nb_subtract, void_cast( Variable_sub ) },         /* nb_subtract */
-    { Py_nb_multiply, void_cast( Variable_mul ) },         /* nb_multiply */
-    { Py_nb_negative, void_cast( Variable_neg ) },         /* nb_negative */
-    { Py_nb_true_divide, void_cast( Variable_div ) },      /* nb_true_divide */
-    { 0, 0 },
-};
-
-
 } // namespace
 
 
 // Initialize static variables (otherwise the compiler eliminates them)
-PyTypeObject* Variable::TypeObject = NULL;
+HPy Variable::TypeObject = HPy_NULL;
 
 
-PyType_Spec Variable::TypeObject_Spec = {
-	"kiwisolver.Variable",             /* tp_name */
-	sizeof( Variable ),                /* tp_basicsize */
-	0,                                 /* tp_itemsize */
-	Py_TPFLAGS_DEFAULT|
-    Py_TPFLAGS_HAVE_GC|
-    Py_TPFLAGS_BASETYPE,               /* tp_flags */
-    Variable_Type_slots                /* slots */
+HPyType_Spec Variable::TypeObject_Spec = {
+	.name = "kiwisolver.Variable",
+	.basicsize = sizeof( Variable ),
+	.itemsize = 0,
+	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
+    .defines = Variable_defines
 };
 
 
-bool Variable::Ready()
+bool Variable::Ready( HPyContext *ctx, HPy m )
 {
     // The reference will be handled by the module to which we will add the type
-	TypeObject = pytype_cast( PyType_FromSpec( &TypeObject_Spec ) );
-    if( !TypeObject )
+    if (!HPyHelpers_AddType(ctx, m, "Variable", &TypeObject_Spec, NULL)) {
+        return false;
+    }
+
+    TypeObject = HPy_GetAttr_s(ctx, m, "Variable");
+    if( HPy_IsNull(TypeObject) )
     {
         return false;
     }

@@ -8,7 +8,6 @@
 #pragma once
 #include <map>
 #include <string>
-#include <cppy/cppy.h>
 #include <kiwi/kiwi.h>
 #include "types.h"
 
@@ -17,40 +16,45 @@ namespace kiwisolver
 {
 
 inline bool
-convert_to_double( PyObject* obj, double& out )
+convert_to_double( HPyContext *ctx, HPy obj, double& out )
 {
-    if( PyFloat_Check( obj ) )
+    if( HPyFloat_Check( ctx, obj ) )
     {
-        out = PyFloat_AS_DOUBLE( obj );
+        out = HPyFloat_AsDouble( ctx, obj );
         return true;
     }
-    if( PyLong_Check( obj ) )
+    if( HPyLong_Check( ctx, obj ) )
     {
-        out = PyLong_AsDouble( obj );
-        if( out == -1.0 && PyErr_Occurred() )
+        out = HPyLong_AsDouble( ctx, obj );
+        if( out == -1.0 && HPyErr_Occurred(ctx) )
             return false;
         return true;
     }
-    cppy::type_error( obj, "float, int, or long" );
+    // PyErr_Format(
+    //     PyExc_TypeError,
+    //     "Expected object of type `%s`. Got object of type `%s` instead.",
+    //     expected,
+    //     ob->ob_type->tp_name );
+    HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `float, int, or long`." );
     return false;
 }
 
 
 inline bool
-convert_pystr_to_str( PyObject* value, std::string& out )
+convert_pystr_to_str( HPyContext *ctx, HPy value, std::string& out )
 {
-    out = PyUnicode_AsUTF8( value );
+    out = HPyUnicode_AsUTF8AndSize( ctx, value, NULL );
     return true;
 }
 
 
 inline bool
-convert_to_strength( PyObject* value, double& out )
+convert_to_strength( HPyContext *ctx, HPy value, double& out )
 {
-    if( PyUnicode_Check( value ) )
+    if( HPyUnicode_Check( ctx, value ) )
     {
         std::string str;
-        if( !convert_pystr_to_str( value, str ) )
+        if( !convert_pystr_to_str( ctx, value, str ) )
             return false;
         if( str == "required" )
             out = kiwi::strength::required;
@@ -62,32 +66,42 @@ convert_to_strength( PyObject* value, double& out )
             out = kiwi::strength::weak;
         else
         {
-            PyErr_Format(
-                PyExc_ValueError,
+            // PyErr_Format(
+            //     PyExc_ValueError,
+            //     "string strength must be 'required', 'strong', 'medium', "
+            //     "or 'weak', not '%s'",
+            //     str.c_str()
+            // );
+            HPyErr_SetString(ctx,
+                ctx->h_ValueError,
                 "string strength must be 'required', 'strong', 'medium', "
-                "or 'weak', not '%s'",
-                str.c_str()
+                "or 'weak'"
             );
             return false;
         }
         return true;
     }
-    if( !convert_to_double( value, out ) )
+    if( !convert_to_double( ctx, value, out ) )
         return false;
     return true;
 }
 
 
 inline bool
-convert_to_relational_op( PyObject* value, kiwi::RelationalOperator& out )
+convert_to_relational_op( HPyContext *ctx, HPy value, kiwi::RelationalOperator& out )
 {
-    if( !PyUnicode_Check( value ) )
+    if( !HPyUnicode_Check( ctx, value ) )
     {
-        cppy::type_error( value, "str" );
+        // PyErr_Format(
+        //     PyExc_TypeError,
+        //     "Expected object of type `%s`. Got object of type `%s` instead.",
+        //     expected,
+        //     ob->ob_type->tp_name );
+        HPyErr_SetString(ctx, ctx->h_TypeError, "Expected object of type `str`." );
         return false;
     }
     std::string str;
-    if( !convert_pystr_to_str( value, str ) )
+    if( !convert_pystr_to_str( ctx, value, str ) )
         return false;
     if( str == "==" )
         out = kiwi::OP_EQ;
@@ -97,80 +111,77 @@ convert_to_relational_op( PyObject* value, kiwi::RelationalOperator& out )
         out = kiwi::OP_GE;
     else
     {
-        PyErr_Format(
-            PyExc_ValueError,
-            "relational operator must be '==', '<=', or '>=', not '%s'",
-            str.c_str()
-        );
+        // PyErr_Format(
+        //     PyExc_ValueError,
+        //     "relational operator must be '==', '<=', or '>=', not '%s'",
+        //     str.c_str()
+        // );
+        HPyErr_SetString(ctx, ctx->h_ValueError, "relational operator must be '==', '<=', or '>='" );
         return false;
     }
     return true;
 }
 
 
-inline PyObject*
-make_terms( const std::map<PyObject*, double>& coeffs )
+inline HPy
+make_terms( HPyContext *ctx, const std::map<HPy*, double>& coeffs )
 {
-    typedef std::map<PyObject*, double>::const_iterator iter_t;
-    cppy::ptr terms( PyTuple_New( coeffs.size() ) );
-    if( !terms )
-        return 0;
-    Py_ssize_t size = PyTuple_GET_SIZE( terms.get() );
-    for( Py_ssize_t i = 0; i < size; ++i ) // zero tuple for safe early return
-        PyTuple_SET_ITEM( terms.get(), i, 0 );
-    Py_ssize_t i = 0;
+    typedef std::map<HPy*, double>::const_iterator iter_t;
+    HPy_ssize_t size = coeffs.size();
+    HPyTupleBuilder terms = HPyTupleBuilder_New( ctx, size );
+    // for( HPy_ssize_t i = 0; i < size; ++i ) // zero tuple for safe early return
+    //     HPyTupleBuilder_Set( ctx, terms, i, 0 );
+    HPy_ssize_t i = 0;
     iter_t it = coeffs.begin();
     iter_t end = coeffs.end();
     for( ; it != end; ++it, ++i )
     {
-        PyObject* pyterm = PyType_GenericNew( Term::TypeObject, 0, 0 );
-        if( !pyterm )
-            return 0;
-        Term* term = reinterpret_cast<Term*>( pyterm );
-        term->variable = cppy::incref( it->first );
+        Term* term;
+        HPy pyterm = HPy_New(ctx, Term::TypeObject, &term);
+        term->variable = HPy_Dup( ctx, *(it->first) );
         term->coefficient = it->second;
-        PyTuple_SET_ITEM( terms.get(), i, pyterm );
+        HPyTupleBuilder_Set( ctx, terms, i, pyterm );
     }
-    return terms.release();
+    return HPyTupleBuilder_Build( ctx, terms );
 }
 
 
-inline PyObject*
-reduce_expression( PyObject* pyexpr )  // pyexpr must be an Expression
+inline HPy
+reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expression
 {
-    Expression* expr = reinterpret_cast<Expression*>( pyexpr );
-    std::map<PyObject*, double> coeffs;
-    Py_ssize_t size = PyTuple_GET_SIZE( expr->terms );
-    for( Py_ssize_t i = 0; i < size; ++i )
+    Expression* expr = Expression::AsStruct( ctx, pyexpr );
+    std::map<HPy*, double> coeffs;
+    HPy_ssize_t size = HPy_Length( ctx, expr->terms );
+    for( HPy_ssize_t i = 0; i < size; ++i )
     {
-        PyObject* item = PyTuple_GET_ITEM( expr->terms, i );
-        Term* term = reinterpret_cast<Term*>( item );
-        coeffs[ term->variable ] += term->coefficient;
+        HPy item = HPy_GetItem_i( ctx, expr->terms, i );
+        Term* term = Term::AsStruct( ctx, item );
+        coeffs[ &term->variable ] += term->coefficient;
     }
-    cppy::ptr terms( make_terms( coeffs ) );
-    if( !terms )
-        return 0;
-    PyObject* pynewexpr = PyType_GenericNew( Expression::TypeObject, 0, 0 );
-    if( !pynewexpr )
-        return 0;
-    Expression* newexpr = reinterpret_cast<Expression*>( pynewexpr );
-    newexpr->terms = terms.release();
+    HPy terms = make_terms( ctx, coeffs );
+    if( HPy_IsNull(terms) )
+        return HPy_NULL;
+    Expression* newexpr;
+    HPy pynewexpr = HPy_New(ctx, Expression::TypeObject, &newexpr);
+    if( HPy_IsNull(pynewexpr) )
+        return HPy_NULL;
+    newexpr->terms = terms;
     newexpr->constant = expr->constant;
     return pynewexpr;
 }
 
 
 inline kiwi::Expression
-convert_to_kiwi_expression( PyObject* pyexpr )  // pyexpr must be an Expression
+convert_to_kiwi_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expression
 {
-    Expression* expr = reinterpret_cast<Expression*>( pyexpr );
+    Expression* expr = Expression::AsStruct( ctx, pyexpr );
     std::vector<kiwi::Term> kterms;
-    Py_ssize_t size = PyTuple_GET_SIZE( expr->terms );
-    for( Py_ssize_t i = 0; i < size; ++i )
+    HPy_ssize_t size = HPy_Length( ctx, expr->terms );
+    for( HPy_ssize_t i = 0; i < size; ++i )
     {
-        PyObject* item = PyTuple_GET_ITEM( expr->terms, i );
-        Term* term = reinterpret_cast<Term*>( item );
-        Variable* var = reinterpret_cast<Variable*>( term->variable );
+        HPy item = HPy_GetItem_i( ctx, expr->terms, i );
+        Term* term = Term::AsStruct( ctx, item );
+        Variable* var = Variable::AsStruct( ctx, term->variable );
         kterms.push_back( kiwi::Term( var->variable, term->coefficient ) );
     }
     return kiwi::Expression( kterms, expr->constant );
@@ -182,17 +193,17 @@ pyop_str( int op )
 {
     switch( op )
     {
-        case Py_LT:
+        case HPy_LT:
             return "<";
-        case Py_LE:
+        case HPy_LE:
             return "<=";
-        case Py_EQ:
+        case HPy_EQ:
             return "==";
-        case Py_NE:
+        case HPy_NE:
             return "!=";
-        case Py_GT:
+        case HPy_GT:
             return ">";
-        case Py_GE:
+        case HPy_GE:
             return ">=";
         default:
             return "";

@@ -6,7 +6,6 @@
 | The full license is in the file LICENSE, distributed with this software.
 |----------------------------------------------------------------------------*/
 #include <sstream>
-#include <cppy/cppy.h>
 #include "symbolics.h"
 #include "types.h"
 #include "util.h"
@@ -20,206 +19,236 @@ namespace
 {
 
 
-PyObject*
-Term_new( PyTypeObject* type, PyObject* args, PyObject* kwargs )
+static HPy
+Term_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
 {
 	static const char *kwlist[] = { "variable", "coefficient", 0 };
-	PyObject* pyvar;
-	PyObject* pycoeff = 0;
-	if( !PyArg_ParseTupleAndKeywords(
-		args, kwargs, "O|O:__new__", const_cast<char**>( kwlist ),
+	HPy pyvar;
+	HPy pycoeff = HPy_NULL;
+    HPyTracker ht;
+	if( !HPyArg_ParseKeywords(ctx, &ht, args, nargs,
+		kwargs, "O|O:__new__", (const char **) kwlist,
 		&pyvar, &pycoeff ) )
-		return 0;
-	if( !Variable::TypeCheck( pyvar ) )
-		return cppy::type_error( pyvar, "Variable" );
+        return HPy_NULL;
+	if( !Variable::TypeCheck( ctx, pyvar ) ){
+		// PyErr_Format(
+		// 	PyExc_TypeError,
+		// 	"Expected object of type `Variable`. Got object of type `%s` instead.",
+		// 	pyvar->ob_type->tp_name );
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Variable`." );
+        HPyTracker_Close(ctx, ht);
+		return HPy_NULL;
+	}
 	double coefficient = 1.0;
-	if( pycoeff && !convert_to_double( pycoeff, coefficient ) )
-		return 0;
-	PyObject* pyterm = PyType_GenericNew( type, args, kwargs );
-	if( !pyterm )
-		return 0;
-	Term* self = reinterpret_cast<Term*>( pyterm );
-	self->variable = cppy::incref( pyvar );
+	if( !HPy_IsNull(pycoeff) && !convert_to_double( ctx, pycoeff, coefficient ) ) {
+        HPyTracker_Close(ctx, ht);
+        return HPy_NULL;
+    }
+	Term* self;
+    HPy pyterm = HPy_New(ctx, type, &self);
+	if( HPy_IsNull(pyterm) ) {
+        HPyTracker_Close(ctx, ht);
+        return HPy_NULL;
+    }
+	self->variable = HPy_Dup( ctx, pyvar );
 	self->coefficient = coefficient;
 	return pyterm;
 }
 
 
-void
-Term_clear( Term* self )
-{
-	Py_CLEAR( self->variable );
-}
+// static void
+// Term_clear( Term* self )
+// {
+// 	Py_CLEAR( self->variable );
+// }
 
 
-int
-Term_traverse( Term* self, visitproc visit, void* arg )
+static int
+Term_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 {
-	Py_VISIT( self->variable );
-#if PY_VERSION_HEX >= 0x03090000
-    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    Py_VISIT(Py_TYPE(self));
-#endif
+// 	HPy_VISIT( self->variable );
+// #if PY_VERSION_HEX >= 0x03090000
+//     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+//     HPy_VISIT(HPy_Type(ctx, self));
+// #endif
 	return 0;
 }
 
 
-void
-Term_dealloc( Term* self )
+static void
+Term_dealloc( void *obj )
 {
-	PyObject_GC_UnTrack( self );
-	Term_clear( self );
-	Py_TYPE( self )->tp_free( pyobject_cast( self ) );
+	// Term* self = (Term*)obj;
+	// PyObject_GC_UnTrack( self );
+	// Term_clear( self );
+	// Py_TYPE( self )->tp_free( pyobject_cast( self ) );
 }
 
 
-PyObject*
-Term_repr( Term* self )
+static HPy
+Term_repr( HPyContext *ctx, HPy h_self )
 {
+	Term* self = Term::AsStruct(ctx, h_self);
 	std::stringstream stream;
 	stream << self->coefficient << " * ";
-	stream << reinterpret_cast<Variable*>( self->variable )->variable.name();
-	return PyUnicode_FromString( stream.str().c_str() );
+	stream << Variable::AsStruct( ctx, self->variable )->variable.name();
+	return HPyUnicode_FromString( ctx, stream.str().c_str() );
 }
 
 
-PyObject*
-Term_variable( Term* self )
+static HPy
+Term_variable( HPyContext *ctx, HPy h_self )
 {
-	return cppy::incref( self->variable );
+	Term* self = Term::AsStruct(ctx, h_self);
+	return HPy_Dup( ctx, self->variable );
 }
 
 
-PyObject*
-Term_coefficient( Term* self )
+static HPy
+Term_coefficient( HPyContext *ctx, HPy h_self )
 {
-	return PyFloat_FromDouble( self->coefficient );
+	Term* self = Term::AsStruct(ctx, h_self);
+	return HPyFloat_FromDouble( ctx, self->coefficient );
 }
 
 
-PyObject*
-Term_value( Term* self )
+static HPy
+Term_value( HPyContext *ctx, HPy h_self )
 {
-	Variable* pyvar = reinterpret_cast<Variable*>( self->variable );
-	return PyFloat_FromDouble( self->coefficient * pyvar->variable.value() );
+	Term* self = Term::AsStruct(ctx, h_self);
+	Variable* pyvar = Variable::AsStruct( ctx, self->variable );
+	return HPyFloat_FromDouble( ctx, self->coefficient * pyvar->variable.value() );
 }
 
 
-PyObject*
-Term_add( PyObject* first, PyObject* second )
+static HPy
+Term_add( HPyContext *ctx, HPy first, HPy second )
 {
-	return BinaryInvoke<BinaryAdd, Term>()( first, second );
+	return BinaryInvoke<BinaryAdd, Term>()( ctx, first, second );
 }
 
 
-PyObject*
-Term_sub( PyObject* first, PyObject* second )
+static HPy
+Term_sub( HPyContext *ctx, HPy first, HPy second )
 {
-	return BinaryInvoke<BinarySub, Term>()( first, second );
+	return BinaryInvoke<BinarySub, Term>()( ctx, first, second );
 }
 
 
-PyObject*
-Term_mul( PyObject* first, PyObject* second )
+static HPy
+Term_mul( HPyContext *ctx, HPy first, HPy second )
 {
-	return BinaryInvoke<BinaryMul, Term>()( first, second );
+	return BinaryInvoke<BinaryMul, Term>()( ctx, first, second );
 }
 
 
-PyObject*
-Term_div( PyObject* first, PyObject* second )
+static HPy
+Term_div( HPyContext *ctx, HPy first, HPy second )
 {
-	return BinaryInvoke<BinaryDiv, Term>()( first, second );
+	return BinaryInvoke<BinaryDiv, Term>()( ctx, first, second );
 }
 
 
-PyObject*
-Term_neg( PyObject* value )
+static HPy
+Term_neg( HPyContext *ctx, HPy value )
 {
-	return UnaryInvoke<UnaryNeg, Term>()( value );
+	return UnaryInvoke<UnaryNeg, Term>()( ctx, value );
 }
 
 
-PyObject*
-Term_richcmp( PyObject* first, PyObject* second, int op )
+static HPy
+Term_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
 {
 	switch( op )
 	{
-		case Py_EQ:
-			return BinaryInvoke<CmpEQ, Term>()( first, second );
-		case Py_LE:
-			return BinaryInvoke<CmpLE, Term>()( first, second );
-		case Py_GE:
-			return BinaryInvoke<CmpGE, Term>()( first, second );
+		case HPy_EQ:
+			return BinaryInvoke<CmpEQ, Term>()( ctx, first, second );
+		case HPy_LE:
+			return BinaryInvoke<CmpLE, Term>()( ctx, first, second );
+		case HPy_GE:
+			return BinaryInvoke<CmpGE, Term>()( ctx, first, second );
 		default:
 			break;
 	}
-	PyErr_Format(
-		PyExc_TypeError,
-		"unsupported operand type(s) for %s: "
-		"'%.100s' and '%.100s'",
-		pyop_str( op ),
-		Py_TYPE( first )->tp_name,
-		Py_TYPE( second )->tp_name
-	);
-	return 0;
+	// PyErr_Format(
+	// 	PyExc_TypeError,
+	// 	"unsupported operand type(s) for %s: "
+	// 	"'%.100s' and '%.100s'",
+	// 	pyop_str( op ),
+	// 	Py_TYPE( first )->tp_name,
+	// 	Py_TYPE( second )->tp_name
+	// );
+    HPyErr_SetString( ctx, ctx->h_TypeError, "unsupported operand type(s)" );
+	return HPy_NULL;
 }
 
 
-static PyMethodDef
-Term_methods[] = {
-	{ "variable", ( PyCFunction )Term_variable, METH_NOARGS,
-	  "Get the variable for the term." },
-	{ "coefficient", ( PyCFunction )Term_coefficient, METH_NOARGS,
-	  "Get the coefficient for the term." },
-	{ "value", ( PyCFunction )Term_value, METH_NOARGS,
-	  "Get the value for the term." },
-	{ 0 } // sentinel
+HPyDef_METH(Term_variable_def, "variable", Term_variable, HPyFunc_NOARGS,
+	.doc = "Get the variable for the term.")
+HPyDef_METH(Term_coefficient_def, "coefficient", Term_coefficient, HPyFunc_NOARGS,
+	.doc = "Get the coefficient for the term.")
+HPyDef_METH(Term_value_def, "value", Term_value, HPyFunc_NOARGS,
+	.doc = "Get the value for the term.")
+
+
+HPyDef_SLOT(Term_dealloc_def, Term_dealloc, HPy_tp_destroy)      /* tp_dealloc */
+HPyDef_SLOT(Term_traverse_def, Term_traverse, HPy_tp_traverse)    /* tp_traverse */
+HPyDef_SLOT(Term_repr_def, Term_repr, HPy_tp_repr)            /* tp_repr */
+HPyDef_SLOT(Term_richcmp_def, Term_richcmp, HPy_tp_richcompare)  /* tp_richcompare */
+HPyDef_SLOT(Term_new_def, Term_new, HPy_tp_new)              /* tp_new */
+HPyDef_SLOT(Term_add_def, Term_add, HPy_nb_add)              /* nb_add */
+HPyDef_SLOT(Term_sub_def, Term_sub, HPy_nb_subtract)         /* nb_subatract */
+HPyDef_SLOT(Term_mul_def, Term_mul, HPy_nb_multiply)         /* nb_multiply */
+HPyDef_SLOT(Term_neg_def, Term_neg, HPy_nb_negative)         /* nb_negative */
+HPyDef_SLOT(Term_div_def, Term_div, HPy_nb_true_divide)      /* nb_true_divide */
+// HPyDef_SLOT(Term_clear_def, Term_clear, HPy_tp_clear)          /* tp_clear */
+
+
+static HPyDef* Term_defines[] = {
+    // slots
+	&Term_dealloc_def,
+	&Term_traverse_def,
+	&Term_repr_def,
+	&Term_richcmp_def,
+	&Term_new_def,
+	&Term_add_def,
+	&Term_sub_def,
+	&Term_mul_def,
+	&Term_neg_def,
+	&Term_div_def,
+	// Term_clear_def,
+
+    // methods
+	&Term_variable_def,
+	&Term_coefficient_def,
+	&Term_value_def,
+    NULL
 };
-
-
-static PyType_Slot Term_Type_slots[] = {
-    { Py_tp_dealloc, void_cast( Term_dealloc ) },      /* tp_dealloc */
-    { Py_tp_traverse, void_cast( Term_traverse ) },    /* tp_traverse */
-    { Py_tp_clear, void_cast( Term_clear ) },          /* tp_clear */
-    { Py_tp_repr, void_cast( Term_repr ) },            /* tp_repr */
-    { Py_tp_richcompare, void_cast( Term_richcmp ) },  /* tp_richcompare */
-    { Py_tp_methods, void_cast( Term_methods ) },      /* tp_methods */
-    { Py_tp_new, void_cast( Term_new ) },              /* tp_new */
-    { Py_tp_alloc, void_cast( PyType_GenericAlloc ) }, /* tp_alloc */
-    { Py_tp_free, void_cast( PyObject_GC_Del ) },      /* tp_free */
-    { Py_nb_add, void_cast( Term_add ) },              /* nb_add */
-    { Py_nb_subtract, void_cast( Term_sub ) },         /* nb_subatract */
-    { Py_nb_multiply, void_cast( Term_mul ) },         /* nb_multiply */
-    { Py_nb_negative, void_cast( Term_neg ) },         /* nb_negative */
-    { Py_nb_true_divide, void_cast( Term_div ) },      /* nb_true_divide */
-    { 0, 0 },
-};
-
-
 } // namespace
 
 
 // Initialize static variables (otherwise the compiler eliminates them)
-PyTypeObject* Term::TypeObject = NULL;
+HPy Term::TypeObject = HPy_NULL;
 
 
-PyType_Spec Term::TypeObject_Spec = {
-	"kiwisolver.Term",             /* tp_name */
-	sizeof( Term ),                /* tp_basicsize */
-	0,                                   /* tp_itemsize */
-	Py_TPFLAGS_DEFAULT|
-    Py_TPFLAGS_HAVE_GC|
-    Py_TPFLAGS_BASETYPE,                 /* tp_flags */
-    Term_Type_slots                /* slots */
+HPyType_Spec Term::TypeObject_Spec = {
+	.name = "kiwisolver.Term",
+	.basicsize = sizeof( Term ),
+	.itemsize = 0,
+	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
+    .defines = Term_defines
 };
 
 
-bool Term::Ready()
+bool Term::Ready( HPyContext *ctx, HPy m )
 {
     // The reference will be handled by the module to which we will add the type
-	TypeObject = pytype_cast( PyType_FromSpec( &TypeObject_Spec ) );
-    if( !TypeObject )
+    if (!HPyHelpers_AddType(ctx, m, "Term", &TypeObject_Spec, NULL)) {
+        return false;
+    }
+
+    TypeObject = HPy_GetAttr_s(ctx, m, "Term");
+    if( HPy_IsNull(TypeObject) )
     {
         return false;
     }

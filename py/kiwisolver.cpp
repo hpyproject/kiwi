@@ -5,7 +5,6 @@
 |
 | The full license is in the file LICENSE, distributed with this software.
 |----------------------------------------------------------------------------*/
-#include <cppy/cppy.h>
 #include <kiwi/kiwi.h>
 #include "types.h"
 
@@ -15,136 +14,77 @@ namespace
 {
 
 
-bool ready_types()
+bool ready_types( HPyContext *ctx, HPy m )
 {
     using namespace kiwisolver;
-    if( !Variable::Ready() )
+    if( !Variable::Ready( ctx, m ) )
     {
         return false;
     }
-    if( !Term::Ready() )
+    if( !Term::Ready( ctx, m ) )
     {
         return false;
     }
-    if( !Expression::Ready() )
+    if( !Expression::Ready( ctx, m ) )
     {
         return false;
     }
-    if( !Constraint::Ready() )
+    if( !Constraint::Ready( ctx, m ) )
     {
         return false;
     }
-    if( !strength::Ready() )
+    if( !strength::Ready( ctx, m ) )
     {
         return false;
     }
-    if( !Solver::Ready() )
+    if( !Solver::Ready( ctx, m ) )
     {
         return false;
     }
     return true;
 }
 
-bool add_objects( PyObject* mod )
+bool add_objects( HPyContext *ctx, HPy mod )
 {
 	using namespace kiwisolver;
 
-    cppy::ptr kiwiversion( PyUnicode_FromString( KIWI_VERSION ) );
-    if( !kiwiversion )
+    HPy kiwiversion = HPyUnicode_FromString( ctx, KIWI_VERSION );
+    if( HPy_IsNull(kiwiversion) )
     {
         return false;
     }
-    cppy::ptr pyversion( PyUnicode_FromString( PY_KIWI_VERSION ) );
-    if( !pyversion )
-    {
-        return false;
-    }
-    cppy::ptr pystrength( PyType_GenericNew( strength::TypeObject, 0, 0 ) );
-    if( !pystrength )
+    HPy pyversion = HPyUnicode_FromString( ctx, PY_KIWI_VERSION );
+    if( HPy_IsNull(pyversion) )
     {
         return false;
     }
 
-    if( PyModule_AddObject( mod, "__version__", pyversion.get() ) < 0 )
-    {
+    if (HPy_SetAttr_s(ctx, mod, "__version__", pyversion)) {
+        HPy_Close(ctx, pyversion);
 		return false;
-	}
-    pyversion.release();
+    }
 
-    if( PyModule_AddObject( mod, "__kiwi_version__", kiwiversion.get() ) < 0 )
-    {
+    if (HPy_SetAttr_s(ctx, mod, "__kiwi_version__", kiwiversion)) {
+        HPy_Close(ctx, pyversion);
 		return false;
-	}
-    kiwiversion.release();
-
-    if( PyModule_AddObject( mod, "strength", pystrength.get() ) < 0 )
-    {
-		return false;
-	}
-    pystrength.release();
-
-    // Variable
-    cppy::ptr var( pyobject_cast( Variable::TypeObject ) );
-	if( PyModule_AddObject( mod, "Variable", var.get() ) < 0 )
-	{
-		return false;
-	}
-    var.release();
-
-    // Term
-    cppy::ptr term( pyobject_cast( Term::TypeObject ) );
-	if( PyModule_AddObject( mod, "Term", term.get() ) < 0 )
-	{
-		return false;
-	}
-    term.release();
-
-    // Expression
-    cppy::ptr expr( pyobject_cast( Expression::TypeObject ) );
-	if( PyModule_AddObject( mod, "Expression", expr.get() ) < 0 )
-	{
-		return false;
-	}
-    expr.release();
-
-    // Constraint
-    cppy::ptr cons( pyobject_cast( Constraint::TypeObject ) );
-	if( PyModule_AddObject( mod, "Constraint", cons.get() ) < 0 )
-	{
-		return false;
-	}
-    cons.release();
-
-    cppy::ptr solver( pyobject_cast( Solver::TypeObject ) );
-	if( PyModule_AddObject( mod, "Solver", solver.get() ) < 0 )
-	{
-		return false;
-	}
-    solver.release();
-
-    PyModule_AddObject( mod, "DuplicateConstraint", DuplicateConstraint );
-    PyModule_AddObject( mod, "UnsatisfiableConstraint", UnsatisfiableConstraint );
-    PyModule_AddObject( mod, "UnknownConstraint", UnknownConstraint );
-    PyModule_AddObject( mod, "DuplicateEditVariable", DuplicateEditVariable );
-    PyModule_AddObject( mod, "UnknownEditVariable", UnknownEditVariable );
-    PyModule_AddObject( mod, "BadRequiredStrength", BadRequiredStrength );
+    }
 
 	return true;
 }
 
 
 int
-catom_modexec( PyObject *mod )
+catom_modexec( HPyContext *ctx, HPy mod )
 {
-    if( !ready_types() )
+    if( !ready_types( ctx, mod ) )
     {
         return -1;
     }
-    if( !kiwisolver::init_exceptions() )
+    if( !kiwisolver::init_exceptions( ctx, mod ) )
     {
         return -1;
     }
-    if( !add_objects( mod ) )
+    if( !add_objects( ctx, mod ) )
     {
         return -1;
     }
@@ -154,34 +94,24 @@ catom_modexec( PyObject *mod )
 }
 
 
-static PyMethodDef
-kiwisolver_methods[] = {
-    { 0 } // Sentinel
-};
-
-
-PyModuleDef_Slot kiwisolver_slots[] = {
-    {Py_mod_exec, reinterpret_cast<void*>( catom_modexec ) },
-    {0, NULL}
-};
-
-
-struct PyModuleDef moduledef = {
-        PyModuleDef_HEAD_INIT,
-        "kiwisolver",
-        "kiwisolver extension module",
-        0,
-        kiwisolver_methods,
-        kiwisolver_slots,
-        NULL,
-        NULL,
-        NULL
+static HPyModuleDef moduledef = {
+    .name = "kiwisolver",
+    .doc = "kiwisolver extension module",
+    .size = 0,
 };
 
 }  // namespace
 
+extern "C" {
 
-PyMODINIT_FUNC PyInit_kiwisolver( void )
+HPy_MODINIT(kiwisolver)
+static HPy init_kiwisolver_impl(HPyContext *ctx)
 {
-    return PyModuleDef_Init( &moduledef );
+    HPy m = HPyModule_Create(ctx, &moduledef);
+    if (HPy_IsNull(m) || catom_modexec( ctx, m ) == -1 ) {
+        return HPy_NULL;
+    }
+    return m;
+}
+
 }

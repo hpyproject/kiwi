@@ -5,7 +5,6 @@
 |
 | The full license is in the file LICENSE, distributed with this software.
 |----------------------------------------------------------------------------*/
-#include <cppy/cppy.h>
 #include <kiwi/kiwi.h>
 #include "types.h"
 #include "util.h"
@@ -17,257 +16,326 @@ namespace kiwisolver
 namespace
 {
 
-PyObject*
-Solver_new( PyTypeObject* type, PyObject* args, PyObject* kwargs )
+static HPy
+Solver_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
 {
-	if( PyTuple_GET_SIZE( args ) != 0 || ( kwargs && PyDict_Size( kwargs ) != 0 ) )
-		return cppy::type_error( "Solver.__new__ takes no arguments" );
-	PyObject* pysolver = PyType_GenericNew( type, args, kwargs );
-	if( !pysolver )
-		return 0;
-	Solver* self = reinterpret_cast<Solver*>( pysolver );
+	if( nargs != 0 || ( !HPy_IsNull(kwargs) && HPy_Length( ctx, kwargs ) != 0 ) ) {
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Solver.__new__ takes no arguments" );
+		return HPy_NULL;
+	}
+	Solver* self;
+	HPy pysolver = HPy_New( ctx, type, &self );
+	if( HPy_IsNull( pysolver ) )
+		return HPy_NULL;
 	new( &self->solver ) kiwi::Solver();
 	return pysolver;
 }
 
 
-void
-Solver_dealloc( Solver* self )
+static void
+Solver_dealloc( void *obj )
 {
+    Solver* self = (Solver*)obj;
 	self->solver.~Solver();
-	Py_TYPE( self )->tp_free( pyobject_cast( self ) );
+	// Py_TYPE( self )->tp_free( pyobject_cast( self ) );
 }
 
 
-PyObject*
-Solver_addConstraint( Solver* self, PyObject* other )
+static HPy
+Solver_addConstraint( HPyContext *ctx, HPy h_self, HPy other )
 {
-	if( !Constraint::TypeCheck( other ) )
-		return cppy::type_error( other, "Constraint" );
-	Constraint* cn = reinterpret_cast<Constraint*>( other );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	if( !Constraint::TypeCheck( ctx, other ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `Constraint`. Got object of type `%s` instead.",
+		//     other->ob_type->tp_name );
+		HPyErr_SetString( ctx,
+			ctx->h_TypeError,
+			"Expected object of type `Constraint`.");
+		return HPy_NULL;
+	}
+	Constraint* cn = Constraint::AsStruct( ctx, other );
 	try
 	{
 		self->solver.addConstraint( cn->constraint );
 	}
 	catch( const kiwi::DuplicateConstraint& )
 	{
-		PyErr_SetObject( DuplicateConstraint, other );
-		return 0;
+		HPyErr_SetObject( ctx, DuplicateConstraint, other );
+		return HPy_NULL;
 	}
 	catch( const kiwi::UnsatisfiableConstraint& )
 	{
-		PyErr_SetObject( UnsatisfiableConstraint, other );
-		return 0;
+		HPyErr_SetObject( ctx, UnsatisfiableConstraint, other );
+		return HPy_NULL;
 	}
-	Py_RETURN_NONE;
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Solver_removeConstraint( Solver* self, PyObject* other )
+static HPy
+Solver_removeConstraint( HPyContext *ctx, HPy h_self, HPy other )
 {
-	if( !Constraint::TypeCheck( other ) )
-		return cppy::type_error( other, "Constraint" );
-	Constraint* cn = reinterpret_cast<Constraint*>( other );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	if( !Constraint::TypeCheck( ctx, other ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `Constraint`. Got object of type `%s` instead.",
+		//     other->ob_type->tp_name );
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Constraint`." );
+		return HPy_NULL;
+	}
+	Constraint* cn = Constraint::AsStruct( ctx, other );
 	try
 	{
 		self->solver.removeConstraint( cn->constraint );
 	}
 	catch( const kiwi::UnknownConstraint& )
 	{
-		PyErr_SetObject( UnknownConstraint, other );
-		return 0;
+		HPyErr_SetObject( ctx, UnknownConstraint, other );
+		return HPy_NULL;
 	}
-	Py_RETURN_NONE;
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Solver_hasConstraint( Solver* self, PyObject* other )
+static HPy
+Solver_hasConstraint( HPyContext *ctx, HPy h_self, HPy other )
 {
-	if( !Constraint::TypeCheck( other ) )
-		return cppy::type_error( other, "Constraint" );
-	Constraint* cn = reinterpret_cast<Constraint*>( other );
-	return cppy::incref( self->solver.hasConstraint( cn->constraint ) ? Py_True : Py_False );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	if( !Constraint::TypeCheck( ctx, other ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `Constraint`. Got object of type `%s` instead.",
+		//     other->ob_type->tp_name );
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Constraint`." );
+		return HPy_NULL;
+	}
+	Constraint* cn = Constraint::AsStruct( ctx, other );
+	return HPy_Dup( ctx, self->solver.hasConstraint( cn->constraint ) ? ctx->h_True : ctx->h_False );
 }
 
 
-PyObject*
-Solver_addEditVariable( Solver* self, PyObject* args )
+static HPy
+Solver_addEditVariable( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
 {
-	PyObject* pyvar;
-	PyObject* pystrength;
-	if( !PyArg_ParseTuple( args, "OO", &pyvar, &pystrength ) )
-		return 0;
-	if( !Variable::TypeCheck( pyvar ) )
-		return cppy::type_error( pyvar, "Variable" );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	HPy pyvar;
+	HPy pystrength;
+	if( !HPyArg_Parse(ctx, NULL, args, nargs, "OO", &pyvar, &pystrength ) )
+		return HPy_NULL;
+	if( !Variable::TypeCheck( ctx, pyvar ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `Variable`. Got object of type `%s` instead.",
+		//     ob->ob_type->tp_name );
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Variable`.");
+		return HPy_NULL;
+	}
 	double strength;
-	if( !convert_to_strength( pystrength, strength ) )
-		return 0;
-	Variable* var = reinterpret_cast<Variable*>( pyvar );
+	if( !convert_to_strength( ctx, pystrength, strength ) )
+		return HPy_NULL;
+	Variable* var = Variable::AsStruct( ctx, pyvar );
 	try
 	{
 		self->solver.addEditVariable( var->variable, strength );
 	}
 	catch( const kiwi::DuplicateEditVariable& )
 	{
-		PyErr_SetObject( DuplicateEditVariable, pyvar );
-		return 0;
+		HPyErr_SetObject( ctx, DuplicateEditVariable, pyvar );
+		return HPy_NULL;
 	}
 	catch( const kiwi::BadRequiredStrength& e )
 	{
-		PyErr_SetString( BadRequiredStrength, e.what() );
-		return 0;
+		HPyErr_SetString( ctx, BadRequiredStrength, e.what() );
+		return HPy_NULL;
 	}
-	Py_RETURN_NONE;
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Solver_removeEditVariable( Solver* self, PyObject* other )
+static HPy
+Solver_removeEditVariable( HPyContext *ctx, HPy h_self, HPy other )
 {
-	if( !Variable::TypeCheck( other ) )
-		return cppy::type_error( other, "Variable" );
-	Variable* var = reinterpret_cast<Variable*>( other );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	if( !Variable::TypeCheck( ctx, other ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `Variable`. Got object of type `%s` instead.",
+		//     other->ob_type->tp_name );
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Variable`." );
+		return HPy_NULL;
+	}
+	Variable* var = Variable::AsStruct( ctx, other );
 	try
 	{
 		self->solver.removeEditVariable( var->variable );
 	}
 	catch( const kiwi::UnknownEditVariable& )
 	{
-		PyErr_SetObject( UnknownEditVariable, other );
-		return 0;
+		HPyErr_SetObject( ctx, UnknownEditVariable, other );
+		return HPy_NULL;
 	}
-	Py_RETURN_NONE;
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Solver_hasEditVariable( Solver* self, PyObject* other )
+static HPy
+Solver_hasEditVariable( HPyContext *ctx, HPy h_self, HPy other )
 {
-	if( !Variable::TypeCheck( other ) )
-		return cppy::type_error( other, "Variable" );
-	Variable* var = reinterpret_cast<Variable*>( other );
-	return cppy::incref( self->solver.hasEditVariable( var->variable ) ? Py_True : Py_False );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	if( !Variable::TypeCheck( ctx, other ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `Variable`. Got object of type `%s` instead.",
+		//     other->ob_type->tp_name );
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Variable`." );
+		return HPy_NULL;
+	}
+	Variable* var = Variable::AsStruct( ctx, other );
+	return HPy_Dup( ctx, self->solver.hasEditVariable( var->variable ) ? ctx->h_True : ctx->h_False );
 }
 
 
-PyObject*
-Solver_suggestValue( Solver* self, PyObject* args )
+static HPy
+Solver_suggestValue( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
 {
-	PyObject* pyvar;
-	PyObject* pyvalue;
-	if( !PyArg_ParseTuple( args, "OO", &pyvar, &pyvalue ) )
-		return 0;
-	if( !Variable::TypeCheck( pyvar ) )
-		return cppy::type_error( pyvar, "Variable" );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	HPy pyvar;
+	HPy pyvalue;
+	if( !HPyArg_Parse(ctx, NULL, args, nargs, "OO", &pyvar, &pyvalue ) )
+		return HPy_NULL;
+	if( !Variable::TypeCheck( ctx, pyvar ) ) {
+		// PyErr_Format(
+		//     PyExc_TypeError,
+		//     "Expected object of type `Variable`. Got object of type `%s` instead.",
+		//     other->ob_type->tp_name );
+		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Variable`." );
+		return HPy_NULL;
+	}
 	double value;
-	if( !convert_to_double( pyvalue, value ) )
-		return 0;
-	Variable* var = reinterpret_cast<Variable*>( pyvar );
+	if( !convert_to_double( ctx, pyvalue, value ) )
+		return HPy_NULL;
+	Variable* var = Variable::AsStruct( ctx, pyvar );
 	try
 	{
 		self->solver.suggestValue( var->variable, value );
 	}
 	catch( const kiwi::UnknownEditVariable& )
 	{
-		PyErr_SetObject( UnknownEditVariable, pyvar );
-		return 0;
+		HPyErr_SetObject( ctx, UnknownEditVariable, pyvar );
+		return HPy_NULL;
 	}
-	Py_RETURN_NONE;
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Solver_updateVariables( Solver* self )
+static HPy
+Solver_updateVariables( HPyContext *ctx, HPy h_self )
 {
+    Solver* self = Solver::AsStruct( ctx, h_self );
 	self->solver.updateVariables();
-	Py_RETURN_NONE;
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Solver_reset( Solver* self )
+static HPy
+Solver_reset( HPyContext *ctx, HPy h_self )
 {
+    Solver* self = Solver::AsStruct( ctx, h_self );
 	self->solver.reset();
-	Py_RETURN_NONE;
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
-PyObject*
-Solver_dump( Solver* self )
+static HPy
+Solver_dump( HPyContext *ctx, HPy h_self )
 {
-	cppy::ptr dump_str( PyUnicode_FromString( self->solver.dumps().c_str() ) );
-	PyObject_Print( dump_str.get(), stdout, 0 );
-	Py_RETURN_NONE;
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	HPy dump_str = HPyUnicode_FromString( ctx, self->solver.dumps().c_str() );
+	HPy_Print( ctx, dump_str, stdout, 0 );
+	return HPy_Dup( ctx, ctx->h_None );
 }
 
-PyObject*
-Solver_dumps( Solver* self )
+static HPy
+Solver_dumps( HPyContext *ctx, HPy h_self )
 {
-	return PyUnicode_FromString( self->solver.dumps().c_str() );
+    Solver* self = Solver::AsStruct( ctx, h_self );
+	return HPyUnicode_FromString( ctx, self->solver.dumps().c_str() );
 }
 
-static PyMethodDef
-Solver_methods[] = {
-	{ "addConstraint", ( PyCFunction )Solver_addConstraint, METH_O,
-	  "Add a constraint to the solver." },
-	{ "removeConstraint", ( PyCFunction )Solver_removeConstraint, METH_O,
-	  "Remove a constraint from the solver." },
-	{ "hasConstraint", ( PyCFunction )Solver_hasConstraint, METH_O,
-	  "Check whether the solver contains a constraint." },
-	{ "addEditVariable", ( PyCFunction )Solver_addEditVariable, METH_VARARGS,
-	  "Add an edit variable to the solver." },
-	{ "removeEditVariable", ( PyCFunction )Solver_removeEditVariable, METH_O,
-	  "Remove an edit variable from the solver." },
-	{ "hasEditVariable", ( PyCFunction )Solver_hasEditVariable, METH_O,
-	  "Check whether the solver contains an edit variable." },
-	{ "suggestValue", ( PyCFunction )Solver_suggestValue, METH_VARARGS,
-	  "Suggest a desired value for an edit variable." },
-	{ "updateVariables", ( PyCFunction )Solver_updateVariables, METH_NOARGS,
-	  "Update the values of the solver variables." },
-	{ "reset", ( PyCFunction )Solver_reset, METH_NOARGS,
-	  "Reset the solver to the initial empty starting condition." },
-	{ "dump", ( PyCFunction )Solver_dump, METH_NOARGS,
-	  "Dump a representation of the solver internals to stdout." },
-	{ "dumps", ( PyCFunction )Solver_dumps, METH_NOARGS,
-	  "Dump a representation of the solver internals to a string." },
-	{ 0 } // sentinel
+HPyDef_METH(Solver_addConstraint_def, "addConstraint", Solver_addConstraint, HPyFunc_O,
+	.doc = "Add a constraint to the solver.")
+HPyDef_METH(Solver_removeConstraint_def, "removeConstraint", Solver_removeConstraint, HPyFunc_O,
+	.doc = "Remove a constraint from the solver.")
+HPyDef_METH(Solver_hasConstraint_def, "hasConstraint", Solver_hasConstraint, HPyFunc_O,
+	.doc = "Check whether the solver contains a constraint.")
+HPyDef_METH(Solver_addEditVariable_def, "addEditVariable", Solver_addEditVariable, HPyFunc_VARARGS,
+	.doc = "Add an edit variable to the solver.")
+HPyDef_METH(Solver_removeEditVariable_def, "removeEditVariable", Solver_removeEditVariable, HPyFunc_O,
+	.doc = "Remove an edit variable from the solver.")
+HPyDef_METH(Solver_hasEditVariable_def, "hasEditVariable", Solver_hasEditVariable, HPyFunc_O,
+	.doc = "Check whether the solver contains an edit variable.")
+HPyDef_METH(Solver_suggestValue_def, "suggestValue", Solver_suggestValue, HPyFunc_VARARGS,
+	.doc = "Suggest a desired value for an edit variable.")
+HPyDef_METH(Solver_updateVariables_def, "updateVariables", Solver_updateVariables, HPyFunc_NOARGS,
+	.doc = "Update the values of the solver variables.")
+HPyDef_METH(Solver_reset_def, "reset", Solver_reset, HPyFunc_NOARGS,
+	.doc = "Reset the solver to the initial empty starting condition.")
+HPyDef_METH(Solver_dump_def, "dump", Solver_dump, HPyFunc_NOARGS,
+	.doc = "Dump a representation of the solver internals to stdout.")
+HPyDef_METH(Solver_dumps_def, "dumps", Solver_dumps, HPyFunc_NOARGS,
+	.doc = "Dump a representation of the solver internals to a string.")
+
+
+HPyDef_SLOT(Solver_dealloc_def, Solver_dealloc, HPy_tp_destroy);
+HPyDef_SLOT(Solver_new_def, Solver_new, HPy_tp_new);
+
+static HPyDef* Solver_defines[] = {
+	// slots
+	&Solver_dealloc_def,
+	&Solver_new_def,
+
+	// methods
+	&Solver_addConstraint_def,
+	&Solver_removeConstraint_def,
+	&Solver_hasConstraint_def,
+	&Solver_addEditVariable_def,
+	&Solver_removeEditVariable_def,
+	&Solver_hasEditVariable_def,
+	&Solver_suggestValue_def,
+	&Solver_updateVariables_def,
+	&Solver_reset_def,
+	&Solver_dump_def,
+	&Solver_dumps_def,
+	NULL
 };
-
-
-static PyType_Slot Solver_Type_slots[] = {
-    { Py_tp_dealloc, void_cast( Solver_dealloc ) },      /* tp_dealloc */
-    { Py_tp_methods, void_cast( Solver_methods ) },      /* tp_methods */
-    { Py_tp_new, void_cast( Solver_new ) },              /* tp_new */
-    { Py_tp_alloc, void_cast( PyType_GenericAlloc ) },   /* tp_alloc */
-    { Py_tp_free, void_cast( PyObject_Del ) },           /* tp_free */
-    { 0, 0 },
-};
-
-
 } // namespace
 
 
 // Initialize static variables (otherwise the compiler eliminates them)
-PyTypeObject* Solver::TypeObject = NULL;
+HPy Solver::TypeObject = HPy_NULL;
 
 
-PyType_Spec Solver::TypeObject_Spec = {
-	"kiwisolver.Solver",             /* tp_name */
-	sizeof( Solver ),                /* tp_basicsize */
-	0,                                   /* tp_itemsize */
-	Py_TPFLAGS_DEFAULT|
-    Py_TPFLAGS_BASETYPE,                 /* tp_flags */
-    Solver_Type_slots                /* slots */
+HPyType_Spec Solver::TypeObject_Spec = {
+	.name = "kiwisolver.Solver",
+	.basicsize = sizeof( Solver ),
+	.itemsize = 0,
+	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_BASETYPE,
+    .defines = Solver_defines
 };
 
 
-bool Solver::Ready()
+bool Solver::Ready( HPyContext *ctx, HPy m )
 {
     // The reference will be handled by the module to which we will add the type
-	TypeObject = pytype_cast( PyType_FromSpec( &TypeObject_Spec ) );
-    if( !TypeObject )
+    if ( !HPyHelpers_AddType( ctx, m, "Solver", &TypeObject_Spec, NULL ) ) {
+        return false;
+    }
+
+    TypeObject = HPy_GetAttr_s( ctx, m, "Solver" );
+    if( HPy_IsNull( TypeObject ) )
     {
         return false;
     }
@@ -275,62 +343,63 @@ bool Solver::Ready()
 }
 
 
-PyObject* DuplicateConstraint;
+HPy DuplicateConstraint;
 
-PyObject* UnsatisfiableConstraint;
+HPy UnsatisfiableConstraint;
 
-PyObject* UnknownConstraint;
+HPy UnknownConstraint;
 
-PyObject* DuplicateEditVariable;
+HPy DuplicateEditVariable;
 
-PyObject* UnknownEditVariable;
+HPy UnknownEditVariable;
 
-PyObject* BadRequiredStrength;
+HPy BadRequiredStrength;
 
 
-bool init_exceptions()
+bool init_exceptions( HPyContext *ctx, HPy mod )
 {
- 	DuplicateConstraint = PyErr_NewException(
- 		const_cast<char*>( "kiwisolver.DuplicateConstraint" ), 0, 0 );
- 	if( !DuplicateConstraint )
+ 	DuplicateConstraint = HPyErr_NewException( ctx, "kiwisolver.DuplicateConstraint", HPy_NULL, HPy_NULL );
+ 	if( HPy_IsNull( DuplicateConstraint) )
     {
         return false;
     }
 
-  	UnsatisfiableConstraint = PyErr_NewException(
-  		const_cast<char*>( "kiwisolver.UnsatisfiableConstraint" ), 0, 0 );
- 	if( !UnsatisfiableConstraint )
+  	UnsatisfiableConstraint = HPyErr_NewException( ctx, "kiwisolver.UnsatisfiableConstraint", HPy_NULL, HPy_NULL );
+ 	if( HPy_IsNull( UnsatisfiableConstraint ) )
  	{
         return false;
     }
 
-  	UnknownConstraint = PyErr_NewException(
-  		const_cast<char*>( "kiwisolver.UnknownConstraint" ), 0, 0 );
- 	if( !UnknownConstraint )
+  	UnknownConstraint = HPyErr_NewException( ctx, "kiwisolver.UnknownConstraint", HPy_NULL, HPy_NULL );
+ 	if( HPy_IsNull( UnknownConstraint ) )
  	{
         return false;
     }
 
-  	DuplicateEditVariable = PyErr_NewException(
-  		const_cast<char*>( "kiwisolver.DuplicateEditVariable" ), 0, 0 );
- 	if( !DuplicateEditVariable )
+  	DuplicateEditVariable = HPyErr_NewException( ctx, "kiwisolver.DuplicateEditVariable", HPy_NULL, HPy_NULL );
+ 	if( HPy_IsNull( DuplicateEditVariable ) )
  	{
         return false;
     }
 
-  	UnknownEditVariable = PyErr_NewException(
-  		const_cast<char*>( "kiwisolver.UnknownEditVariable" ), 0, 0 );
- 	if( !UnknownEditVariable )
+  	UnknownEditVariable = HPyErr_NewException( ctx, "kiwisolver.UnknownEditVariable", HPy_NULL, HPy_NULL );
+ 	if( HPy_IsNull( UnknownEditVariable ) )
  	{
         return false;
     }
 
-  	BadRequiredStrength = PyErr_NewException(
-  		const_cast<char*>( "kiwisolver.BadRequiredStrength" ), 0, 0 );
- 	if( !BadRequiredStrength )
+  	BadRequiredStrength = HPyErr_NewException( ctx, "kiwisolver.BadRequiredStrength", HPy_NULL, HPy_NULL );
+ 	if( HPy_IsNull( BadRequiredStrength ) )
  	{
         return false;
     }
+
+    HPy_SetAttr_s( ctx, mod, "DuplicateConstraint", DuplicateConstraint );
+    HPy_SetAttr_s( ctx, mod, "UnsatisfiableConstraint", UnsatisfiableConstraint );
+    HPy_SetAttr_s( ctx, mod, "UnknownConstraint", UnknownConstraint );
+    HPy_SetAttr_s( ctx, mod, "DuplicateEditVariable", DuplicateEditVariable );
+    HPy_SetAttr_s( ctx, mod, "UnknownEditVariable", UnknownEditVariable );
+    HPy_SetAttr_s( ctx, mod, "BadRequiredStrength", BadRequiredStrength );
 
 	return true;
 }

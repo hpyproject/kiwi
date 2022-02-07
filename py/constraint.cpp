@@ -7,7 +7,6 @@
 |----------------------------------------------------------------------------*/
 #include <algorithm>
 #include <sstream>
-#include <cppy/cppy.h>
 #include <kiwi/kiwi.h>
 #include "types.h"
 #include "util.h"
@@ -18,72 +17,89 @@ namespace kiwisolver
 namespace
 {
 
-PyObject *
-Constraint_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+static HPy
+Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs)
 {
     static const char *kwlist[] = {"expression", "op", "strength", 0};
-    PyObject *pyexpr;
-    PyObject *pyop;
-    PyObject *pystrength = 0;
-    if (!PyArg_ParseTupleAndKeywords(
-            args, kwargs, "OO|O:__new__", const_cast<char **>(kwlist),
+    HPy pyexpr;
+    HPy pyop;
+    HPy pystrength = HPy_NULL;
+    HPyTracker ht;
+    if (!HPyArg_ParseKeywords(ctx, &ht, args, nargs,
+            kwargs, "OO|O:__new__", (const char **)kwlist,
             &pyexpr, &pyop, &pystrength))
-        return 0;
-    if (!Expression::TypeCheck(pyexpr))
-        return cppy::type_error(pyexpr, "Expression");
+        return HPy_NULL;
+    if (!Expression::TypeCheck(ctx, pyexpr)){
+        // PyErr_Format(
+        //     PyExc_TypeError,
+        //     "Expected object of type `Expression`. Got object of type `%s` instead.",
+        //     ob->ob_type->tp_name );
+        HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Expression`." );
+        return HPy_NULL;
+    }
     kiwi::RelationalOperator op;
-    if (!convert_to_relational_op(pyop, op))
-        return 0;
+    if (!convert_to_relational_op(ctx, pyop, op)) {
+        HPyTracker_Close(ctx, ht);
+        return HPy_NULL;
+    }
     double strength = kiwi::strength::required;
-    if (pystrength && !convert_to_strength(pystrength, strength))
-        return 0;
-    cppy::ptr pycn(PyType_GenericNew(type, args, kwargs));
-    if (!pycn)
-        return 0;
-    Constraint *cn = reinterpret_cast<Constraint *>(pycn.get());
-    cn->expression = reduce_expression(pyexpr);
-    if (!cn->expression)
-        return 0;
-    kiwi::Expression expr(convert_to_kiwi_expression(cn->expression));
+    if (!HPy_IsNull(pystrength) && !convert_to_strength(ctx, pystrength, strength)) {
+        HPyTracker_Close(ctx, ht);
+        return HPy_NULL;
+    }
+    Constraint *cn;
+    HPy pycn = HPy_New(ctx, type, &cn);
+    if (HPy_IsNull(pycn)) {
+        HPyTracker_Close(ctx, ht);
+        return HPy_NULL;
+    }
+    cn->expression = reduce_expression(ctx, pyexpr);
+    if (HPy_IsNull(cn->expression)) {
+        HPyTracker_Close(ctx, ht);
+        return HPy_NULL;
+    }
+    kiwi::Expression expr(convert_to_kiwi_expression(ctx, cn->expression));
     new (&cn->constraint) kiwi::Constraint(expr, op, strength);
-    return pycn.release();
+    return pycn;
 }
 
-void Constraint_clear(Constraint *self)
-{
-    Py_CLEAR(self->expression);
-}
+// static void Constraint_clear(HPyContext *ctx, Constraint *self) TODO
+// {
+//     HPy_CLEAR(ctx, self->expression);
+// }
 
-int Constraint_traverse(Constraint *self, visitproc visit, void *arg)
+static int Constraint_traverse(void *obj, HPyFunc_visitproc visit, void *arg)
 {
-    Py_VISIT(self->expression);
-#if PY_VERSION_HEX >= 0x03090000
+    // Constraint *self = (Constraint *)obj;
+    // HPy_VISIT(self->expression);
+// #if PY_VERSION_HEX >= 0x03090000
     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    Py_VISIT(Py_TYPE(self));
-#endif
+    // Py_VISIT(Py_TYPE(self)); TODO
+// #endif
     return 0;
 }
 
-void Constraint_dealloc(Constraint *self)
+static void Constraint_dealloc(void *obj)
 {
-    PyObject_GC_UnTrack(self);
-    Constraint_clear(self);
-    self->constraint.~Constraint();
-    Py_TYPE(self)->tp_free(pyobject_cast(self));
+    // PyObject_GC_UnTrack(self);
+    // Constraint_clear(self);
+    // self->constraint.~Constraint();
+    // Py_TYPE(self)->tp_free(pyobject_cast(self));
 }
 
-PyObject *
-Constraint_repr(Constraint *self)
+static HPy 
+Constraint_repr(HPyContext *ctx, HPy h_self)
 {
+    Constraint* self = Constraint_AsStruct(ctx, h_self);
     std::stringstream stream;
-    Expression *expr = reinterpret_cast<Expression *>(self->expression);
-    Py_ssize_t size = PyTuple_GET_SIZE(expr->terms);
-    for (Py_ssize_t i = 0; i < size; ++i)
+    Expression *expr = Expression::AsStruct(ctx, self->expression);
+    HPy_ssize_t size = HPy_Length(ctx, expr->terms);
+    for (HPy_ssize_t i = 0; i < size; ++i)
     {
-        PyObject *item = PyTuple_GET_ITEM(expr->terms, i);
-        Term *term = reinterpret_cast<Term *>(item);
+        HPy item = HPy_GetItem_i(ctx, expr->terms, i);
+        Term *term = Term::AsStruct(ctx, item);
         stream << term->coefficient << " * ";
-        stream << reinterpret_cast<Variable *>(term->variable)->variable.name();
+        stream << Variable::AsStruct(ctx, term->variable)->variable.name();
         stream << " + ";
     }
     stream << expr->constant;
@@ -100,102 +116,114 @@ Constraint_repr(Constraint *self)
         break;
     }
     stream << " | strength = " << self->constraint.strength();
-    return PyUnicode_FromString(stream.str().c_str());
+    return HPyUnicode_FromString(ctx, stream.str().c_str());
 }
 
-PyObject *
-Constraint_expression(Constraint *self)
+static HPy 
+Constraint_expression(HPyContext *ctx, HPy h_self)
 {
-    return cppy::incref(self->expression);
+    Constraint* self = Constraint_AsStruct(ctx, h_self);
+    return HPy_Dup(ctx, self->expression);
 }
 
-PyObject *
-Constraint_op(Constraint *self)
+static HPy 
+Constraint_op(HPyContext *ctx, HPy h_self)
 {
-    PyObject *res = 0;
+    Constraint* self = Constraint_AsStruct(ctx, h_self);
+    HPy res = HPy_NULL;
     switch (self->constraint.op())
     {
     case kiwi::OP_EQ:
-        res = PyUnicode_FromString("==");
+        res = HPyUnicode_FromString(ctx, "==");
         break;
     case kiwi::OP_LE:
-        res = PyUnicode_FromString("<=");
+        res = HPyUnicode_FromString(ctx, "<=");
         break;
     case kiwi::OP_GE:
-        res = PyUnicode_FromString(">=");
+        res = HPyUnicode_FromString(ctx, ">=");
         break;
     }
     return res;
 }
 
-PyObject *
-Constraint_strength(Constraint *self)
+static HPy 
+Constraint_strength(HPyContext *ctx, HPy h_self)
 {
-    return PyFloat_FromDouble(self->constraint.strength());
+    Constraint* self = Constraint::AsStruct(ctx, h_self);
+    return HPyFloat_FromDouble(ctx, self->constraint.strength());
 }
 
-PyObject *
-Constraint_or(PyObject *pyoldcn, PyObject *value)
+static HPy 
+Constraint_or(HPyContext *ctx, HPy pyoldcn, HPy value)
 {
-    if (!Constraint::TypeCheck(pyoldcn))
+    if (!Constraint::TypeCheck(ctx, pyoldcn))
         std::swap(pyoldcn, value);
     double strength;
-    if (!convert_to_strength(value, strength))
-        return 0;
-    PyObject *pynewcn = PyType_GenericNew(Constraint::TypeObject, 0, 0);
-    if (!pynewcn)
-        return 0;
-    Constraint *oldcn = reinterpret_cast<Constraint *>(pyoldcn);
-    Constraint *newcn = reinterpret_cast<Constraint *>(pynewcn);
-    newcn->expression = cppy::incref(oldcn->expression);
+    if (!convert_to_strength(ctx, value, strength))
+        return HPy_NULL;
+    Constraint *newcn;
+    HPy pynewcn = HPy_New(ctx, Constraint::TypeObject, &newcn);
+    if (HPy_IsNull(pynewcn))
+        return HPy_NULL;
+    Constraint *oldcn = Constraint::AsStruct(ctx, pyoldcn);
+    newcn->expression = HPy_Dup(ctx, oldcn->expression);
     new (&newcn->constraint) kiwi::Constraint(oldcn->constraint, strength);
     return pynewcn;
 }
 
-static PyMethodDef
-    Constraint_methods[] = {
-        {"expression", (PyCFunction)Constraint_expression, METH_NOARGS,
-         "Get the expression object for the constraint."},
-        {"op", (PyCFunction)Constraint_op, METH_NOARGS,
-         "Get the relational operator for the constraint."},
-        {"strength", (PyCFunction)Constraint_strength, METH_NOARGS,
-         "Get the strength for the constraint."},
-        {0} // sentinel
-};
 
-static PyType_Slot Constraint_Type_slots[] = {
-    {Py_tp_dealloc, void_cast(Constraint_dealloc)},   /* tp_dealloc */
-    {Py_tp_traverse, void_cast(Constraint_traverse)}, /* tp_traverse */
-    {Py_tp_clear, void_cast(Constraint_clear)},       /* tp_clear */
-    {Py_tp_repr, void_cast(Constraint_repr)},         /* tp_repr */
-    {Py_tp_methods, void_cast(Constraint_methods)},   /* tp_methods */
-    {Py_tp_new, void_cast(Constraint_new)},           /* tp_new */
-    {Py_tp_alloc, void_cast(PyType_GenericAlloc)},    /* tp_alloc */
-    {Py_tp_free, void_cast(PyObject_GC_Del)},         /* tp_free */
-    {Py_nb_or, void_cast(Constraint_or)},             /* nb_or */
-    {0, 0},
-};
+HPyDef_METH(Constraint_expression_def, "expression", Constraint_expression, HPyFunc_NOARGS,
+.doc = "Get the expression object for the constraint.")
+HPyDef_METH(Constraint_op_def, "op", Constraint_op, HPyFunc_NOARGS,
+.doc = "Get the relational operator for the constraint.")
+HPyDef_METH(Constraint_strength_def, "strength", Constraint_strength, HPyFunc_NOARGS,
+.doc = "Get the strength for the constraint.")
 
+
+HPyDef_SLOT(Constraint_dealloc_def, Constraint_dealloc, HPy_tp_destroy)
+HPyDef_SLOT(Constraint_traverse_def, Constraint_traverse, HPy_tp_traverse)
+HPyDef_SLOT(Constraint_repr_def, Constraint_repr, HPy_tp_repr)
+HPyDef_SLOT(Constraint_new_def, Constraint_new, HPy_tp_new)
+HPyDef_SLOT(Constraint_or_def, Constraint_or, HPy_nb_or)
+// HPyDef_SLOT(Constraint_clear_def, Constraint_clear, HPy_tp_clear)       TODO /* tp_clear */
+
+static HPyDef* Constraint_defines[] = {
+    // slots
+    &Constraint_dealloc_def,
+    &Constraint_traverse_def,
+    &Constraint_repr_def,
+    &Constraint_new_def,
+    &Constraint_or_def,
+    // &Constraint_clear_def,
+
+    // methods
+    &Constraint_expression_def,
+    &Constraint_op_def,
+    &Constraint_strength_def,
+    NULL
+};
 } // namespace
 
 // Initialize static variables (otherwise the compiler eliminates them)
-PyTypeObject *Constraint::TypeObject = NULL;
+HPy Constraint::TypeObject = HPy_NULL;
 
-PyType_Spec Constraint::TypeObject_Spec = {
-    "kiwisolver.Constraint", /* tp_name */
-    sizeof(Constraint),      /* tp_basicsize */
-    0,                       /* tp_itemsize */
-    Py_TPFLAGS_DEFAULT |
-        Py_TPFLAGS_HAVE_GC |
-        Py_TPFLAGS_BASETYPE, /* tp_flags */
-    Constraint_Type_slots    /* slots */
+HPyType_Spec Constraint::TypeObject_Spec = {
+    .name = "kiwisolver.Constraint", /* tp_name */
+    .basicsize = sizeof(Constraint),      /* tp_basicsize */
+    .itemsize = 0,                       /* tp_itemsize */
+    .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
+    .defines = Constraint_defines    /* slots */
 };
 
-bool Constraint::Ready()
+bool Constraint::Ready(HPyContext *ctx, HPy m)
 {
     // The reference will be handled by the module to which we will add the type
-    TypeObject = pytype_cast(PyType_FromSpec(&TypeObject_Spec));
-    if (!TypeObject)
+    if (!HPyHelpers_AddType(ctx, m, "Constraint", &TypeObject_Spec, NULL)) {
+        return false;
+    }
+
+    TypeObject = HPy_GetAttr_s(ctx, m, "Constraint");
+    if( HPy_IsNull(TypeObject) )
     {
         return false;
     }

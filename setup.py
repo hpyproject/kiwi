@@ -34,38 +34,6 @@ ext_modules = [
 ]
 
 
-class BuildExt(build_ext):
-    """ A custom build extension for adding compiler-specific options.
-
-    """
-    c_opts = {
-        'msvc': ['/EHsc', '/std:c++11'],
-        'unix': ['-std=c++11']
-    }
-
-    def build_extensions(self):
-
-        # Delayed import of cppy to let setup_requires install it if necessary
-        import cppy
-
-        ct = self.compiler.compiler_type
-        opts = self.c_opts.get(ct, [])
-
-        for ext in self.extensions:
-            ext.include_dirs.insert(0, cppy.get_include())
-            ext.extra_compile_args = opts
-            if sys.platform == 'darwin':
-                ext.extra_compile_args += ['-stdlib=libc++']
-                ext.extra_link_args += ['-stdlib=libc++']
-            if (ct == 'msvc' and os.environ.get('KIWI_DISABLE_FH4')):
-                # Disable FH4 Exception Handling implementation so that we don't
-                # require VCRUNTIME140_1.dll. For more details, see:
-                # https://devblogs.microsoft.com/cppblog/making-cpp-exception-handling-smaller-x64/
-                # https://github.com/joerick/cibuildwheel/issues/423#issuecomment-677763904
-                ext.extra_compile_args.append('/d2FH4-')
-        build_ext.build_extensions(self)
-
-
 setup(
     name='kiwisolver',
     version='1.3.2',
@@ -88,7 +56,6 @@ setup(
           'Programming Language :: Python :: Implementation :: PyPy',
       ],
     python_requires='>=3.7',
-    setup_requires=['cppy>=1.1.0'],
-    ext_modules=ext_modules,
-    cmdclass={'build_ext': BuildExt},
+    setup_requires=['hpy>0.0.2'],
+    hpy_ext_modules=ext_modules,
 )
