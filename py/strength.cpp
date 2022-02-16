@@ -132,12 +132,24 @@ bool strength::Ready( HPyContext *ctx, HPy m )
     }
 
     TypeObject = HPy_GetAttr_s(ctx, m, "strength");
+	if( HPy_IsNull(TypeObject) ) {
+		return false;
+	}
+
 	strength* s;
-    if( HPy_IsNull(TypeObject) || 
-		HPy_SetAttr_s(ctx, m, "strength", HPy_New(ctx, TypeObject, &s)) )
+	HPy h_strength = HPy_New(ctx, TypeObject, &s);
+    if( HPy_IsNull(h_strength) ) {
+		HPy_Close(ctx, TypeObject);
+		return false;
+	}
+	HPy_Close(ctx, TypeObject);
+	
+	if ( HPy_SetAttr_s(ctx, m, "strength", h_strength) )
     {
+		HPy_Close(ctx, h_strength);
         return false;
     }
+	HPy_Close(ctx, h_strength);
     return true;
 }
 

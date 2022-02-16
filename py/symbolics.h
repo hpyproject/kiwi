@@ -124,12 +124,18 @@ HPy BinaryMul::operator()( HPyContext *ctx, Expression* first, double second, HP
 	for( HPy_ssize_t i = 0; i < end; ++i )
 	{
 		HPy item = HPy_GetItem_i( ctx, first->terms, i );
+		if( HPy_IsNull(item) ) {
+			HPyTupleBuilder_Cancel(ctx, terms);
+			return HPy_NULL;
+		}
 		HPy term = BinaryMul()( ctx, Term_AsStruct( ctx, item ), second, item, h_second );
+		HPy_Close(ctx, item);
 		if( HPy_IsNull(term) ) {
 			HPyTupleBuilder_Cancel(ctx, terms);
 			return HPy_NULL;
 		}
 		HPyTupleBuilder_Set( ctx, terms, i, term );
+		HPy_Close(ctx, term);
 	}
 	expr->terms = HPyTupleBuilder_Build( ctx, terms );
 	expr->constant = first->constant * second;
@@ -259,12 +265,14 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Expression* secon
 	for( HPy_ssize_t i = 0; i < first_len; ++i )
 	{
 		HPy item = HPy_GetItem_i( ctx, first->terms, i );
-		HPyTupleBuilder_Set( ctx, terms, i, HPy_Dup( ctx, item ) );
+		HPyTupleBuilder_Set( ctx, terms, i, item );
+		HPy_Close( ctx, item );
 	}
-	for( HPy_ssize_t i = first_len; i < first_len + second_len; ++i )
+	for( HPy_ssize_t j = 0; j < second_len; ++j )
 	{
-		HPy item = HPy_GetItem_i( ctx, second->terms, first_len - i );
-		HPyTupleBuilder_Set( ctx, terms, i, HPy_Dup( ctx, item ) );
+		HPy item = HPy_GetItem_i( ctx, second->terms, j );
+		HPyTupleBuilder_Set( ctx, terms, j + first_len, item );
+		HPy_Close( ctx, item );
 	}
 	expr->terms = HPyTupleBuilder_Build( ctx, terms );
 	if( HPy_IsNull(expr->terms) )

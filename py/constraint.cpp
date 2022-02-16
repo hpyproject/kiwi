@@ -68,16 +68,16 @@ Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwar
 //     HPy_CLEAR(ctx, self->expression);
 // }
 
-static int Constraint_traverse(void *obj, HPyFunc_visitproc visit, void *arg)
-{
-    // Constraint *self = (Constraint *)obj;
-    // HPy_VISIT(self->expression);
-// #if PY_VERSION_HEX >= 0x03090000
-    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    // Py_VISIT(Py_TYPE(self)); TODO
-// #endif
-    return 0;
-}
+// static int Constraint_traverse(void *obj, HPyFunc_visitproc visit, void *arg)
+// {
+//     // Constraint *self = (Constraint *)obj;
+//     // HPy_VISIT(self->expression);
+// // #if PY_VERSION_HEX >= 0x03090000
+//     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+//     // Py_VISIT(Py_TYPE(self)); TODO
+// // #endif
+//     return 0;
+// }
 
 static void Constraint_dealloc(void *obj)
 {
@@ -181,7 +181,7 @@ HPyDef_METH(Constraint_strength_def, "strength", Constraint_strength, HPyFunc_NO
 
 
 HPyDef_SLOT(Constraint_dealloc_def, Constraint_dealloc, HPy_tp_destroy)
-HPyDef_SLOT(Constraint_traverse_def, Constraint_traverse, HPy_tp_traverse)
+// HPyDef_SLOT(Constraint_traverse_def, Constraint_traverse, HPy_tp_traverse)
 HPyDef_SLOT(Constraint_repr_def, Constraint_repr, HPy_tp_repr)
 HPyDef_SLOT(Constraint_new_def, Constraint_new, HPy_tp_new)
 HPyDef_SLOT(Constraint_or_def, Constraint_or, HPy_nb_or)
@@ -190,7 +190,7 @@ HPyDef_SLOT(Constraint_or_def, Constraint_or, HPy_nb_or)
 static HPyDef* Constraint_defines[] = {
     // slots
     &Constraint_dealloc_def,
-    &Constraint_traverse_def,
+    // &Constraint_traverse_def,
     &Constraint_repr_def,
     &Constraint_new_def,
     &Constraint_or_def,
@@ -211,7 +211,7 @@ HPyType_Spec Constraint::TypeObject_Spec = {
     .name = "kiwisolver.Constraint", /* tp_name */
     .basicsize = sizeof(Constraint),      /* tp_basicsize */
     .itemsize = 0,                       /* tp_itemsize */
-    .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
+    .flags = HPy_TPFLAGS_DEFAULT /* | HPy_TPFLAGS_HAVE_GC */ | HPy_TPFLAGS_BASETYPE,
     .defines = Constraint_defines    /* slots */
 };
 

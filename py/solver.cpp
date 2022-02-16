@@ -255,6 +255,7 @@ Solver_dump( HPyContext *ctx, HPy h_self )
     Solver* self = Solver::AsStruct( ctx, h_self );
 	HPy dump_str = HPyUnicode_FromString( ctx, self->solver.dumps().c_str() );
 	HPy_Print( ctx, dump_str, stdout, 0 );
+	HPy_Close( ctx, dump_str );
 	return HPy_Dup( ctx, ctx->h_None );
 }
 

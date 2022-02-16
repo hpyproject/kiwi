@@ -44,6 +44,7 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
             return HPy_NULL;
         }
         HPyTupleBuilder_Set( ctx, terms, i, item );
+        HPy_Close( ctx, item );
     }
     double constant = 0.0;
     if( !HPy_IsNull(pyconstant) && !convert_to_double( ctx, pyconstant, constant ) ) {
@@ -69,17 +70,17 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
 // }
 
 
-static int
-Expression_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
-{
-//     Expression* self = (Expression*) obj;
-//     HPy_VISIT( self->terms );
-// #if PY_VERSION_HEX >= 0x03090000
-    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    // HPy_VISIT(HPy_Type( ctx, self )); TODO
-// #endif
-    return 0;
-}
+// static int
+// Expression_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
+// {
+// //     Expression* self = (Expression*) obj;
+// //     HPy_VISIT( self->terms );
+// // #if PY_VERSION_HEX >= 0x03090000
+//     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+//     // HPy_VISIT(HPy_Type( ctx, self )); TODO
+// // #endif
+//     return 0;
+// }
 
 
 static void
@@ -215,7 +216,7 @@ HPyDef_METH(Expression_value_def, "value", Expression_value, HPyFunc_NOARGS,
 
 
 HPyDef_SLOT(Expression_dealloc_def, Expression_dealloc, HPy_tp_destroy)     /* tp_dealloc */
-HPyDef_SLOT(Expression_traverse_def, Expression_traverse, HPy_tp_traverse)  /* tp_traverse */
+// HPyDef_SLOT(Expression_traverse_def, Expression_traverse, HPy_tp_traverse)  /* tp_traverse */
 HPyDef_SLOT(Expression_repr_def, Expression_repr, HPy_tp_repr)              /* tp_repr */
 HPyDef_SLOT(Expression_richcmp_def, Expression_richcmp, HPy_tp_richcompare) /* tp_richcompare */
 HPyDef_SLOT(Expression_new_def, Expression_new, HPy_tp_new)                 /* tp_new */
@@ -229,7 +230,7 @@ HPyDef_SLOT(Expression_div_def, Expression_div, HPy_nb_true_divide)         /* n
 static HPyDef* Expression_defines[] = {
     // slots
     &Expression_dealloc_def,
-    &Expression_traverse_def,
+    // &Expression_traverse_def,
     &Expression_repr_def,
     &Expression_richcmp_def,
     &Expression_new_def,
@@ -257,7 +258,7 @@ HPyType_Spec Expression::TypeObject_Spec = {
 	.name = "kiwisolver.Expression",
 	.basicsize = sizeof( Expression ),
 	.itemsize = 0,
-	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
+	.flags = HPy_TPFLAGS_DEFAULT /* | HPy_TPFLAGS_HAVE_GC */ | HPy_TPFLAGS_BASETYPE,
     .defines = Expression_defines
 };
 

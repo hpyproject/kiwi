@@ -53,6 +53,13 @@ bool add_objects( HPyContext *ctx, HPy mod )
     {
         return false;
     }
+
+    if (HPy_SetAttr_s(ctx, mod, "__kiwi_version__", kiwiversion)) {
+        HPy_Close(ctx, kiwiversion);
+		return false;
+    }
+    HPy_Close(ctx, kiwiversion);
+
     HPy pyversion = HPyUnicode_FromString( ctx, PY_KIWI_VERSION );
     if( HPy_IsNull(pyversion) )
     {
@@ -63,11 +70,7 @@ bool add_objects( HPyContext *ctx, HPy mod )
         HPy_Close(ctx, pyversion);
 		return false;
     }
-
-    if (HPy_SetAttr_s(ctx, mod, "__kiwi_version__", kiwiversion)) {
-        HPy_Close(ctx, pyversion);
-		return false;
-    }
+    HPy_Close(ctx, pyversion);
 
 	return true;
 }

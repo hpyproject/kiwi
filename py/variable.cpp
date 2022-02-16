@@ -75,17 +75,17 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
 // }
 
 
-static int
-Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
-{
-//     Variable* self = (Variable*) obj;
-// 	HPy_VISIT( self->context );
-// #if PY_VERSION_HEX >= 0x03090000
-    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    // HPy_VISIT(HPy_Type(ctx, self));
-// #endif
-	return 0;
-}
+// static int
+// Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
+// {
+// //     Variable* self = (Variable*) obj;
+// // 	HPy_VISIT( self->context );
+// // #if PY_VERSION_HEX >= 0x03090000
+//     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+//     // HPy_VISIT(HPy_Type(ctx, self));
+// // #endif
+// 	return 0;
+// }
 
 
 static void
@@ -245,7 +245,7 @@ HPyDef_METH(Variable_value_def, "value", Variable_value, HPyFunc_NOARGS,
 
 
 HPyDef_SLOT(Variable_dealloc_def, Variable_dealloc, HPy_tp_destroy)
-HPyDef_SLOT(Variable_traverse_def, Variable_traverse, HPy_tp_traverse)
+// HPyDef_SLOT(Variable_traverse_def, Variable_traverse, HPy_tp_traverse)
 HPyDef_SLOT(Variable_repr_def, Variable_repr, HPy_tp_repr)
 HPyDef_SLOT(Variable_richcmp_def, Variable_richcmp, HPy_tp_richcompare)
 HPyDef_SLOT(Variable_new_def, Variable_new, HPy_tp_new)
@@ -259,7 +259,7 @@ HPyDef_SLOT(Variable_div_def, Variable_div, HPy_nb_true_divide)
 static HPyDef* Variable_defines[] = {
     // slots
 	&Variable_dealloc_def,
-	&Variable_traverse_def,
+	// &Variable_traverse_def,
 	&Variable_repr_def,
 	&Variable_richcmp_def,
 	&Variable_new_def,
@@ -289,7 +289,7 @@ HPyType_Spec Variable::TypeObject_Spec = {
 	.name = "kiwisolver.Variable",
 	.basicsize = sizeof( Variable ),
 	.itemsize = 0,
-	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
+	.flags = HPy_TPFLAGS_DEFAULT /* | HPy_TPFLAGS_HAVE_GC */ | HPy_TPFLAGS_BASETYPE,
     .defines = Variable_defines
 };
 
