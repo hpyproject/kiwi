@@ -41,7 +41,7 @@ struct strength
 
 struct Variable
 {
-	HPy context;
+	HPyField context;
 	kiwi::Variable variable;
 
     static HPyType_Spec TypeObject_Spec;

@@ -37,7 +37,7 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
 	if( HPy_IsNull(pyvar) )
 		return HPy_NULL;
 
-	self->context = HPy_Dup( ctx, context );
+	HPyField_Store(ctx, pyvar, &self->context, context);
 
 	if( !HPy_IsNull( name ) )
 	{
@@ -69,23 +69,24 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
 
 
 // static void
-// Variable_clear( HPyContext *ctx, Variable* self )
+// Variable_clear( HPyContext *ctx, HPy h_self )
 // {
-// 	HPy_CLEAR( ctx, self->context );
+//     Variable* self = Variable::AsStruct( ctx, h_self );
+// 	HPyField_Store(ctx, h_self, &self->context, HPy_NULL);
 // }
 
 
-// static int
-// Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
-// {
-// //     Variable* self = (Variable*) obj;
-// // 	HPy_VISIT( self->context );
-// // #if PY_VERSION_HEX >= 0x03090000
-//     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-//     // HPy_VISIT(HPy_Type(ctx, self));
-// // #endif
-// 	return 0;
-// }
+static int
+Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
+{
+    Variable* self = (Variable*) obj;
+	HPy_VISIT( &self->context );
+// #if PY_VERSION_HEX >= 0x03090000
+    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+    // HPy_VISIT(HPy_Type(ctx, self));
+// #endif
+	return 0;
+}
 
 
 static void
@@ -142,8 +143,12 @@ static HPy
 Variable_context( HPyContext *ctx, HPy h_self )
 {
     Variable* self = Variable::AsStruct( ctx, h_self );
-	if( !HPy_IsNull(self->context) )
-		return HPy_Dup( ctx, self->context );
+	if( !HPyField_IsNull(self->context) ) {
+		HPy context = HPyField_Load(ctx, h_self, self->context);
+		if (!HPy_IsNull(context)) {
+			return HPy_Dup( ctx, HPyField_Load(ctx, h_self, self->context) );
+		}
+	}
 	return HPy_Dup( ctx, ctx->h_None );
 }
 
@@ -152,11 +157,9 @@ static HPy
 Variable_setContext( HPyContext *ctx, HPy h_self, HPy value )
 {
     Variable* self = Variable::AsStruct( ctx, h_self );
-	if( !HPy_Is( ctx, value, self->context ) )
+	if( HPyField_IsNull(self->context) || !HPy_Is( ctx, value, HPyField_Load(ctx, h_self, self->context) ) )
 	{
-		HPy temp = self->context;
-		self->context = HPy_Dup( ctx, value );
-		HPy_Close( ctx, temp );
+		HPyField_Store(ctx, h_self, &self->context, value);
 	}
 	return HPy_Dup( ctx, ctx->h_None );
 }
@@ -245,7 +248,7 @@ HPyDef_METH(Variable_value_def, "value", Variable_value, HPyFunc_NOARGS,
 
 
 HPyDef_SLOT(Variable_dealloc_def, Variable_dealloc, HPy_tp_destroy)
-// HPyDef_SLOT(Variable_traverse_def, Variable_traverse, HPy_tp_traverse)
+HPyDef_SLOT(Variable_traverse_def, Variable_traverse, HPy_tp_traverse)
 HPyDef_SLOT(Variable_repr_def, Variable_repr, HPy_tp_repr)
 HPyDef_SLOT(Variable_richcmp_def, Variable_richcmp, HPy_tp_richcompare)
 HPyDef_SLOT(Variable_new_def, Variable_new, HPy_tp_new)
@@ -259,7 +262,7 @@ HPyDef_SLOT(Variable_div_def, Variable_div, HPy_nb_true_divide)
 static HPyDef* Variable_defines[] = {
     // slots
 	&Variable_dealloc_def,
-	// &Variable_traverse_def,
+	&Variable_traverse_def,
 	&Variable_repr_def,
 	&Variable_richcmp_def,
 	&Variable_new_def,
