@@ -87,7 +87,7 @@ HPyType_HELPERS(Term)
 
 struct Expression
 {
-	HPy terms;
+	HPyField terms;
 	double constant;
 
     static HPyType_Spec TypeObject_Spec;

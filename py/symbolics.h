@@ -117,13 +117,14 @@ HPy BinaryMul::operator()( HPyContext *ctx, Expression* first, double second, HP
 	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
-	HPyTupleBuilder terms = HPyTupleBuilder_New( ctx, HPy_Length( ctx, first->terms ) );
-	HPy_ssize_t end = HPy_Length( ctx, first->terms );
+	HPy first_terms = HPyField_Load(ctx, h_first, first->terms);
+	HPyTupleBuilder terms = HPyTupleBuilder_New( ctx, HPy_Length( ctx, first_terms ) );
+	HPy_ssize_t end = HPy_Length( ctx, first_terms );
 	// for( HPy_ssize_t i = 0; i < end; ++i )  // memset 0 for safe error return
 	// 	HPyTupleBuilder_Set( ctx, terms, i, 0 );
 	for( HPy_ssize_t i = 0; i < end; ++i )
 	{
-		HPy item = HPy_GetItem_i( ctx, first->terms, i );
+		HPy item = HPy_GetItem_i( ctx, first_terms, i );
 		if( HPy_IsNull(item) ) {
 			HPyTupleBuilder_Cancel(ctx, terms);
 			return HPy_NULL;
@@ -137,7 +138,8 @@ HPy BinaryMul::operator()( HPyContext *ctx, Expression* first, double second, HP
 		HPyTupleBuilder_Set( ctx, terms, i, term );
 		HPy_Close(ctx, term);
 	}
-	expr->terms = HPyTupleBuilder_Build( ctx, terms );
+	HPy terms_tuple = HPyTupleBuilder_Build( ctx, terms );
+	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
 	expr->constant = first->constant * second;
 	return pyexpr;
 }
@@ -259,24 +261,27 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Expression* secon
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
 	expr->constant = first->constant + second->constant;
-	HPy_ssize_t first_len = HPy_Length( ctx, first->terms );
-	HPy_ssize_t second_len = HPy_Length( ctx, second->terms );
+	HPy first_terms = HPyField_Load(ctx, h_first, first->terms);
+	HPy second_terms = HPyField_Load(ctx, h_second, second->terms);
+	HPy_ssize_t first_len = HPy_Length( ctx, first_terms );
+	HPy_ssize_t second_len = HPy_Length( ctx, second_terms );
 	HPyTupleBuilder terms = HPyTupleBuilder_New( ctx, first_len + second_len );
 	for( HPy_ssize_t i = 0; i < first_len; ++i )
 	{
-		HPy item = HPy_GetItem_i( ctx, first->terms, i );
+		HPy item = HPy_GetItem_i( ctx, first_terms, i );
 		HPyTupleBuilder_Set( ctx, terms, i, item );
 		HPy_Close( ctx, item );
 	}
 	for( HPy_ssize_t j = 0; j < second_len; ++j )
 	{
-		HPy item = HPy_GetItem_i( ctx, second->terms, j );
+		HPy item = HPy_GetItem_i( ctx, second_terms, j );
 		HPyTupleBuilder_Set( ctx, terms, j + first_len, item );
 		HPy_Close( ctx, item );
 	}
-	expr->terms = HPyTupleBuilder_Build( ctx, terms );
-	if( HPy_IsNull(expr->terms) )
+	HPy terms_tuple = HPyTupleBuilder_Build( ctx, terms );
+	if( HPy_IsNull(terms_tuple) )
 		return HPy_NULL;
+	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
 	return pyexpr;
 }
 
@@ -288,11 +293,12 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Term* second, HPy
 	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
-	HPyTupleBuilder terms = HPyTupleBuilder_New( ctx, HPy_Length( ctx, first->terms ) + 1 );
-	HPy_ssize_t end = HPy_Length( ctx, first->terms );
+	HPy first_terms = HPyField_Load(ctx, h_first, first->terms);
+	HPyTupleBuilder terms = HPyTupleBuilder_New( ctx, HPy_Length( ctx, first_terms ) + 1 );
+	HPy_ssize_t end = HPy_Length( ctx, first_terms );
 	for( HPy_ssize_t i = 0; i < end; ++i )
 	{
-		HPy item = HPy_GetItem_i( ctx, first->terms, i );
+		HPy item = HPy_GetItem_i( ctx, first_terms, i );
 		if( HPy_IsNull(item) ) {
 			HPyTupleBuilder_Cancel( ctx, terms );
 			return HPy_NULL;
@@ -300,7 +306,8 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Term* second, HPy
 		HPyTupleBuilder_Set( ctx, terms, i, HPy_Dup( ctx, item ) );
 	}
 	HPyTupleBuilder_Set( ctx, terms, end, HPy_Dup( ctx, h_second ) );
-	expr->terms = HPyTupleBuilder_Build( ctx, terms );
+	HPy terms_tuple = HPyTupleBuilder_Build( ctx, terms );
+	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
 	expr->constant = first->constant;
 	return pyexpr;
 }
@@ -323,7 +330,7 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, double second, HP
 	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
-	expr->terms = HPy_Dup( ctx, first->terms );
+	HPyField_Store(ctx, pyexpr, &expr->terms, HPyField_Load(ctx, h_first, first->terms));
 	expr->constant = first->constant + second;
 	return pyexpr;
 }
@@ -340,9 +347,10 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, double second, HPy h_fi
 	HPy items[] = {
 		h_first,
 	};
-	expr->terms = HPyTuple_FromArray( ctx, items, 1 );
-	if( HPy_IsNull(expr->terms) )
+	HPy terms_tuple = HPyTuple_FromArray( ctx, items, 1 );
+	if( HPy_IsNull(terms_tuple) )
 		return HPy_NULL;
+	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
 	return pyexpr;
 }
 
@@ -366,9 +374,10 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, Term* second, HPy h_fir
 		h_first,
 		h_second
 	};
-	expr->terms = HPyTuple_FromArray( ctx, items, 2 );
-	if( HPy_IsNull(expr->terms) )
+	HPy terms_tuple = HPyTuple_FromArray( ctx, items, 2 );
+	if( HPy_IsNull(terms_tuple) )
 		return HPy_NULL;
+	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
 	return pyexpr;
 }
 

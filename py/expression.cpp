@@ -53,11 +53,12 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
     }
     Expression* self;
     HPy pyexpr = HPy_New(ctx, type, &self);
-    self->terms = HPyTupleBuilder_Build( ctx, terms );
-    if (HPy_IsNull(self->terms)) {
+    HPy terms_tuple = HPyTupleBuilder_Build( ctx, terms );
+    if (HPy_IsNull(terms_tuple)) {
         HPyTracker_Close(ctx, ht);
         return HPy_NULL;
     }
+    HPyField_Store(ctx, pyexpr, &self->terms, terms_tuple);
     self->constant = constant;
     return pyexpr;
 }
@@ -70,17 +71,17 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
 // }
 
 
-// static int
-// Expression_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
-// {
-// //     Expression* self = (Expression*) obj;
-// //     HPy_VISIT( self->terms );
-// // #if PY_VERSION_HEX >= 0x03090000
-//     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-//     // HPy_VISIT(HPy_Type( ctx, self )); TODO
-// // #endif
-//     return 0;
-// }
+static int
+Expression_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
+{
+    Expression* self = (Expression*) obj;
+    HPy_VISIT( &self->terms );
+// #if PY_VERSION_HEX >= 0x03090000
+    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+    // HPy_VISIT(HPy_Type( ctx, self )); TODO
+// #endif
+    return 0;
+}
 
 
 static void
@@ -98,10 +99,11 @@ Expression_repr( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
     std::stringstream stream;
-    HPy_ssize_t end = HPy_Length( ctx, self->terms );
+    HPy expr_terms = HPyField_Load(ctx, h_self, self->terms);
+    HPy_ssize_t end = HPy_Length( ctx, expr_terms );
     for( HPy_ssize_t i = 0; i < end; ++i )
     {
-        HPy item = HPy_GetItem_i( ctx, self->terms, i );
+        HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
         stream << term->coefficient << " * ";
         stream << Variable::AsStruct( ctx, term->variable )->variable.name();
@@ -116,7 +118,8 @@ static HPy
 Expression_terms( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
-    return HPy_Dup( ctx, self->terms );
+    HPy expr_terms = HPyField_Load(ctx, h_self, self->terms);
+    return HPy_Dup( ctx, expr_terms );
 }
 
 
@@ -133,10 +136,11 @@ Expression_value( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
     double result = self->constant;
-    HPy_ssize_t size = HPy_Length( ctx, self->terms );
+    HPy expr_terms = HPyField_Load(ctx, h_self, self->terms);
+    HPy_ssize_t size = HPy_Length( ctx, expr_terms );
     for( HPy_ssize_t i = 0; i < size; ++i )
     {
-        HPy item = HPy_GetItem_i( ctx, self->terms, i );
+        HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
         Variable* pyvar = Variable::AsStruct( ctx, term->variable );
         result += term->coefficient * pyvar->variable.value();
@@ -216,7 +220,7 @@ HPyDef_METH(Expression_value_def, "value", Expression_value, HPyFunc_NOARGS,
 
 
 HPyDef_SLOT(Expression_dealloc_def, Expression_dealloc, HPy_tp_destroy)     /* tp_dealloc */
-// HPyDef_SLOT(Expression_traverse_def, Expression_traverse, HPy_tp_traverse)  /* tp_traverse */
+HPyDef_SLOT(Expression_traverse_def, Expression_traverse, HPy_tp_traverse)  /* tp_traverse */
 HPyDef_SLOT(Expression_repr_def, Expression_repr, HPy_tp_repr)              /* tp_repr */
 HPyDef_SLOT(Expression_richcmp_def, Expression_richcmp, HPy_tp_richcompare) /* tp_richcompare */
 HPyDef_SLOT(Expression_new_def, Expression_new, HPy_tp_new)                 /* tp_new */
@@ -230,7 +234,7 @@ HPyDef_SLOT(Expression_div_def, Expression_div, HPy_nb_true_divide)         /* n
 static HPyDef* Expression_defines[] = {
     // slots
     &Expression_dealloc_def,
-    // &Expression_traverse_def,
+    &Expression_traverse_def,
     &Expression_repr_def,
     &Expression_richcmp_def,
     &Expression_new_def,

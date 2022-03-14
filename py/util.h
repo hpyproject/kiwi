@@ -151,10 +151,11 @@ reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expressio
 {
     Expression* expr = Expression::AsStruct( ctx, pyexpr );
     std::map<HPy*, double> coeffs;
-    HPy_ssize_t size = HPy_Length( ctx, expr->terms );
+    HPy expr_terms = HPyField_Load(ctx, pyexpr, expr->terms);
+    HPy_ssize_t size = HPy_Length( ctx, expr_terms );
     for( HPy_ssize_t i = 0; i < size; ++i )
     {
-        HPy item = HPy_GetItem_i( ctx, expr->terms, i );
+        HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
         coeffs[ &term->variable ] += term->coefficient;
     }
@@ -165,7 +166,7 @@ reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expressio
     HPy pynewexpr = HPy_New(ctx, Expression::TypeObject, &newexpr);
     if( HPy_IsNull(pynewexpr) )
         return HPy_NULL;
-    newexpr->terms = terms;
+    HPyField_Store(ctx, pynewexpr, &newexpr->terms, terms);
     newexpr->constant = expr->constant;
     return pynewexpr;
 }
@@ -176,10 +177,11 @@ convert_to_kiwi_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an 
 {
     Expression* expr = Expression::AsStruct( ctx, pyexpr );
     std::vector<kiwi::Term> kterms;
-    HPy_ssize_t size = HPy_Length( ctx, expr->terms );
+    HPy expr_terms = HPyField_Load(ctx, pyexpr, expr->terms);
+    HPy_ssize_t size = HPy_Length( ctx, expr_terms );
     for( HPy_ssize_t i = 0; i < size; ++i )
     {
-        HPy item = HPy_GetItem_i( ctx, expr->terms, i );
+        HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
         Variable* var = Variable::AsStruct( ctx, term->variable );
         kterms.push_back( kiwi::Term( var->variable, term->coefficient ) );

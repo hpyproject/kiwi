@@ -93,11 +93,13 @@ Constraint_repr(HPyContext *ctx, HPy h_self)
 {
     Constraint* self = Constraint_AsStruct(ctx, h_self);
     std::stringstream stream;
-    Expression *expr = Expression::AsStruct(ctx, HPyField_Load(ctx, h_self, self->expression));
-    HPy_ssize_t size = HPy_Length(ctx, expr->terms);
+    HPy h_expr = HPyField_Load(ctx, h_self, self->expression);
+    Expression *expr = Expression::AsStruct(ctx, h_expr);
+    HPy expr_terms = HPyField_Load(ctx, h_expr, expr->terms);
+    HPy_ssize_t size = HPy_Length(ctx, expr_terms);
     for (HPy_ssize_t i = 0; i < size; ++i)
     {
-        HPy item = HPy_GetItem_i(ctx, expr->terms, i);
+        HPy item = HPy_GetItem_i(ctx, expr_terms, i);
         Term *term = Term::AsStruct(ctx, item);
         stream << term->coefficient << " * ";
         stream << Variable::AsStruct(ctx, term->variable)->variable.name();
