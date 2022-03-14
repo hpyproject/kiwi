@@ -605,10 +605,11 @@ HPy makecn( HPyContext *ctx, T first, U second, kiwi::RelationalOperator op, HPy
 	if( HPy_IsNull(pycn) )
 		return HPy_NULL;
 	Constraint* cn = Constraint_AsStruct( ctx, pycn );
-	cn->expression = reduce_expression( ctx, pyexpr );
-	if( HPy_IsNull(cn->expression) )
+	HPy red_expr = reduce_expression( ctx, pyexpr );
+	if( HPy_IsNull(red_expr) )
 		return HPy_NULL;
-	kiwi::Expression expr( convert_to_kiwi_expression( ctx, cn->expression ) );
+	HPyField_Store(ctx, pycn, &cn->expression, red_expr);
+	kiwi::Expression expr( convert_to_kiwi_expression( ctx, red_expr ) );
 	new( &cn->constraint ) kiwi::Constraint( expr, op, kiwi::strength::required );
 	return pycn;
 }

@@ -53,12 +53,13 @@ Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwar
         HPyTracker_Close(ctx, ht);
         return HPy_NULL;
     }
-    cn->expression = reduce_expression(ctx, pyexpr);
-    if (HPy_IsNull(cn->expression)) {
+    HPy red_expr = reduce_expression(ctx, pyexpr);
+    if (HPy_IsNull(red_expr)) {
         HPyTracker_Close(ctx, ht);
         return HPy_NULL;
     }
-    kiwi::Expression expr(convert_to_kiwi_expression(ctx, cn->expression));
+    HPyField_Store(ctx, pycn, &cn->expression, red_expr);
+    kiwi::Expression expr(convert_to_kiwi_expression(ctx, red_expr));
     new (&cn->constraint) kiwi::Constraint(expr, op, strength);
     return pycn;
 }
@@ -68,16 +69,16 @@ Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwar
 //     HPy_CLEAR(ctx, self->expression);
 // }
 
-// static int Constraint_traverse(void *obj, HPyFunc_visitproc visit, void *arg)
-// {
-//     // Constraint *self = (Constraint *)obj;
-//     // HPy_VISIT(self->expression);
-// // #if PY_VERSION_HEX >= 0x03090000
-//     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-//     // Py_VISIT(Py_TYPE(self)); TODO
-// // #endif
-//     return 0;
-// }
+static int Constraint_traverse(void *obj, HPyFunc_visitproc visit, void *arg)
+{
+    Constraint *self = (Constraint *)obj;
+    HPy_VISIT(&self->expression);
+// #if PY_VERSION_HEX >= 0x03090000
+    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
+    // Py_VISIT(Py_TYPE(self)); TODO
+// #endif
+    return 0;
+}
 
 static void Constraint_dealloc(void *obj)
 {
@@ -92,7 +93,7 @@ Constraint_repr(HPyContext *ctx, HPy h_self)
 {
     Constraint* self = Constraint_AsStruct(ctx, h_self);
     std::stringstream stream;
-    Expression *expr = Expression::AsStruct(ctx, self->expression);
+    Expression *expr = Expression::AsStruct(ctx, HPyField_Load(ctx, h_self, self->expression));
     HPy_ssize_t size = HPy_Length(ctx, expr->terms);
     for (HPy_ssize_t i = 0; i < size; ++i)
     {
@@ -123,7 +124,7 @@ static HPy
 Constraint_expression(HPyContext *ctx, HPy h_self)
 {
     Constraint* self = Constraint_AsStruct(ctx, h_self);
-    return HPy_Dup(ctx, self->expression);
+    return HPy_Dup(ctx, HPyField_Load(ctx, h_self, self->expression));
 }
 
 static HPy 
@@ -166,7 +167,7 @@ Constraint_or(HPyContext *ctx, HPy pyoldcn, HPy value)
     if (HPy_IsNull(pynewcn))
         return HPy_NULL;
     Constraint *oldcn = Constraint::AsStruct(ctx, pyoldcn);
-    newcn->expression = HPy_Dup(ctx, oldcn->expression);
+    HPyField_Store(ctx, pynewcn, &newcn->expression, HPyField_Load(ctx, pyoldcn, oldcn->expression));
     new (&newcn->constraint) kiwi::Constraint(oldcn->constraint, strength);
     return pynewcn;
 }
@@ -181,7 +182,7 @@ HPyDef_METH(Constraint_strength_def, "strength", Constraint_strength, HPyFunc_NO
 
 
 HPyDef_SLOT(Constraint_dealloc_def, Constraint_dealloc, HPy_tp_destroy)
-// HPyDef_SLOT(Constraint_traverse_def, Constraint_traverse, HPy_tp_traverse)
+HPyDef_SLOT(Constraint_traverse_def, Constraint_traverse, HPy_tp_traverse)
 HPyDef_SLOT(Constraint_repr_def, Constraint_repr, HPy_tp_repr)
 HPyDef_SLOT(Constraint_new_def, Constraint_new, HPy_tp_new)
 HPyDef_SLOT(Constraint_or_def, Constraint_or, HPy_nb_or)
@@ -190,7 +191,7 @@ HPyDef_SLOT(Constraint_or_def, Constraint_or, HPy_nb_or)
 static HPyDef* Constraint_defines[] = {
     // slots
     &Constraint_dealloc_def,
-    // &Constraint_traverse_def,
+    &Constraint_traverse_def,
     &Constraint_repr_def,
     &Constraint_new_def,
     &Constraint_or_def,

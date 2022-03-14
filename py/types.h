@@ -110,7 +110,7 @@ HPyType_HELPERS(Expression)
 
 struct Constraint
 {
-	HPy expression;
+	HPyField expression;
 	kiwi::Constraint constraint;
 
     static HPyType_Spec TypeObject_Spec;
