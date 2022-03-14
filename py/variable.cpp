@@ -68,35 +68,20 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
 }
 
 
-// static void
-// Variable_clear( HPyContext *ctx, HPy h_self )
-// {
-//     Variable* self = Variable::AsStruct( ctx, h_self );
-// 	HPyField_Store(ctx, h_self, &self->context, HPy_NULL);
-// }
-
-
 static int
 Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 {
     Variable* self = (Variable*) obj;
 	HPy_VISIT( &self->context );
-// #if PY_VERSION_HEX >= 0x03090000
-    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    // HPy_VISIT(HPy_Type(ctx, self));
-// #endif
 	return 0;
 }
 
 
 static void
-Variable_dealloc( void *obj )
+Variable_dealloc(HPyContext *ctx, HPy h_self)
 {
-	Variable* self = (Variable*)obj;
-	// PyObject_GC_UnTrack( self );
-	// Variable_clear( ctx, self );
+	Variable* self = Variable::AsStruct( ctx, h_self );
 	self->variable.~Variable();
-	// Py_TYPE( self )->tp_free( pyobject_cast( self ) );
 }
 
 
@@ -247,7 +232,7 @@ HPyDef_METH(Variable_value_def, "value", Variable_value, HPyFunc_NOARGS,
 	.doc = "Get the current value of the variable.")
 
 
-HPyDef_SLOT(Variable_dealloc_def, Variable_dealloc, HPy_tp_destroy)
+HPyDef_SLOT(Variable_dealloc_def, Variable_dealloc, HPy_tp_finalize)
 HPyDef_SLOT(Variable_traverse_def, Variable_traverse, HPy_tp_traverse)
 HPyDef_SLOT(Variable_repr_def, Variable_repr, HPy_tp_repr)
 HPyDef_SLOT(Variable_richcmp_def, Variable_richcmp, HPy_tp_richcompare)
@@ -257,7 +242,6 @@ HPyDef_SLOT(Variable_sub_def, Variable_sub, HPy_nb_subtract)
 HPyDef_SLOT(Variable_mul_def, Variable_mul, HPy_nb_multiply)
 HPyDef_SLOT(Variable_neg_def, Variable_neg, HPy_nb_negative)
 HPyDef_SLOT(Variable_div_def, Variable_div, HPy_nb_true_divide)
-// HPyDef_SLOT(Variable_clear_def, Variable_clear, HPy_tp_clear)
 
 static HPyDef* Variable_defines[] = {
     // slots
@@ -292,7 +276,7 @@ HPyType_Spec Variable::TypeObject_Spec = {
 	.name = "kiwisolver.Variable",
 	.basicsize = sizeof( Variable ),
 	.itemsize = 0,
-	.flags = HPy_TPFLAGS_DEFAULT /* | HPy_TPFLAGS_HAVE_GC */ | HPy_TPFLAGS_BASETYPE,
+	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
     .defines = Variable_defines
 };
 

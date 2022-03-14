@@ -64,33 +64,12 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
 }
 
 
-// static void
-// Expression_clear( Expression* self ) // TODO
-// {
-//     HPy_CLEAR( self->terms );
-// }
-
-
 static int
 Expression_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 {
     Expression* self = (Expression*) obj;
     HPy_VISIT( &self->terms );
-// #if PY_VERSION_HEX >= 0x03090000
-    // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-    // HPy_VISIT(HPy_Type( ctx, self )); TODO
-// #endif
     return 0;
-}
-
-
-static void
-Expression_dealloc( void* obj )
-{
-    // Expression* self = (Expression*) obj;
-    // PyObject_GC_UnTrack( self );
-    // Expression_clear( ctx, self ); // TODO
-    // Py_TYPE( self )->tp_free( pyobject_cast( self ) );
 }
 
 
@@ -219,7 +198,6 @@ HPyDef_METH(Expression_value_def, "value", Expression_value, HPyFunc_NOARGS,
     .doc = "Get the value for the expression.")
 
 
-HPyDef_SLOT(Expression_dealloc_def, Expression_dealloc, HPy_tp_destroy)     /* tp_dealloc */
 HPyDef_SLOT(Expression_traverse_def, Expression_traverse, HPy_tp_traverse)  /* tp_traverse */
 HPyDef_SLOT(Expression_repr_def, Expression_repr, HPy_tp_repr)              /* tp_repr */
 HPyDef_SLOT(Expression_richcmp_def, Expression_richcmp, HPy_tp_richcompare) /* tp_richcompare */
@@ -229,11 +207,9 @@ HPyDef_SLOT(Expression_sub_def, Expression_sub, HPy_nb_subtract)            /* n
 HPyDef_SLOT(Expression_mul_def, Expression_mul, HPy_nb_multiply)            /* nb_mul */
 HPyDef_SLOT(Expression_neg_def, Expression_neg, HPy_nb_negative)            /* nb_neg */
 HPyDef_SLOT(Expression_div_def, Expression_div, HPy_nb_true_divide)         /* nb_div */
-// HPyDef_SLOT(Expression_clear_def, Expression_clear, HPy_tp_clear)        TODO /* tp_clear */
 
 static HPyDef* Expression_defines[] = {
     // slots
-    &Expression_dealloc_def,
     &Expression_traverse_def,
     &Expression_repr_def,
     &Expression_richcmp_def,
@@ -243,7 +219,6 @@ static HPyDef* Expression_defines[] = {
     &Expression_mul_def,
     &Expression_neg_def,
     &Expression_div_def,
-    // &Expression_clear_def,
 
     // methods
     &Expression_terms_def,
@@ -262,7 +237,7 @@ HPyType_Spec Expression::TypeObject_Spec = {
 	.name = "kiwisolver.Expression",
 	.basicsize = sizeof( Expression ),
 	.itemsize = 0,
-	.flags = HPy_TPFLAGS_DEFAULT /* | HPy_TPFLAGS_HAVE_GC */ | HPy_TPFLAGS_BASETYPE,
+	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
     .defines = Expression_defines
 };
 

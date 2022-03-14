@@ -56,32 +56,13 @@ Term_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
 }
 
 
-// static void
-// Term_clear( Term* self )
-// {
-// 	Py_CLEAR( self->variable );
-// }
 
-
-// static int
-// Term_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
-// {
-// // 	HPy_VISIT( self->variable );
-// // #if PY_VERSION_HEX >= 0x03090000
-// //     // This was not needed before Python 3.9 (Python issue 35810 and 40217)
-// //     HPy_VISIT(HPy_Type(ctx, self));
-// // #endif
-// 	return 0;
-// }
-
-
-static void
-Term_dealloc( void *obj )
+static int
+Term_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 {
 	// Term* self = (Term*)obj;
 	// PyObject_GC_UnTrack( self );
-	// Term_clear( self );
-	// Py_TYPE( self )->tp_free( pyobject_cast( self ) );
+	return 0;
 }
 
 
@@ -191,8 +172,7 @@ HPyDef_METH(Term_value_def, "value", Term_value, HPyFunc_NOARGS,
 	.doc = "Get the value for the term.")
 
 
-HPyDef_SLOT(Term_dealloc_def, Term_dealloc, HPy_tp_destroy)      /* tp_dealloc */
-// HPyDef_SLOT(Term_traverse_def, Term_traverse, HPy_tp_traverse)    /* tp_traverse */
+HPyDef_SLOT(Term_traverse_def, Term_traverse, HPy_tp_traverse)    /* tp_traverse */
 HPyDef_SLOT(Term_repr_def, Term_repr, HPy_tp_repr)            /* tp_repr */
 HPyDef_SLOT(Term_richcmp_def, Term_richcmp, HPy_tp_richcompare)  /* tp_richcompare */
 HPyDef_SLOT(Term_new_def, Term_new, HPy_tp_new)              /* tp_new */
@@ -201,13 +181,11 @@ HPyDef_SLOT(Term_sub_def, Term_sub, HPy_nb_subtract)         /* nb_subatract */
 HPyDef_SLOT(Term_mul_def, Term_mul, HPy_nb_multiply)         /* nb_multiply */
 HPyDef_SLOT(Term_neg_def, Term_neg, HPy_nb_negative)         /* nb_negative */
 HPyDef_SLOT(Term_div_def, Term_div, HPy_nb_true_divide)      /* nb_true_divide */
-// HPyDef_SLOT(Term_clear_def, Term_clear, HPy_tp_clear)          /* tp_clear */
 
 
 static HPyDef* Term_defines[] = {
     // slots
-	&Term_dealloc_def,
-	// &Term_traverse_def,
+	&Term_traverse_def,
 	&Term_repr_def,
 	&Term_richcmp_def,
 	&Term_new_def,
@@ -235,7 +213,7 @@ HPyType_Spec Term::TypeObject_Spec = {
 	.name = "kiwisolver.Term",
 	.basicsize = sizeof( Term ),
 	.itemsize = 0,
-	.flags = HPy_TPFLAGS_DEFAULT /* | HPy_TPFLAGS_HAVE_GC */ | HPy_TPFLAGS_BASETYPE,
+	.flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC | HPy_TPFLAGS_BASETYPE,
     .defines = Term_defines
 };
 
