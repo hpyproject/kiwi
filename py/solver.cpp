@@ -249,12 +249,55 @@ Solver_reset( HPyContext *ctx, HPy h_self )
 }
 
 
+/* 
+ Simple port of PyObject_Print. 
+ Checks have been removed as Solver isn't checking the return of PyObject_Print
+ */
+void
+Solver_Print(HPyContext *ctx, HPy op, FILE *fp)
+{
+    clearerr(fp); /* Clear any previous error condition */
+    if (HPy_IsNull(op)) {
+        HPy_BEGIN_LEAVE_PYTHON(ctx)
+        fprintf(fp, "<nil>");
+        HPy_END_LEAVE_PYTHON(ctx)
+		return;
+    }
+    else {
+		HPy s = HPy_Repr(ctx, op);
+		if (HPy_IsNull(s))
+			return;
+		else if (HPyBytes_Check(ctx, s)) {
+			fwrite(HPyBytes_AS_STRING(ctx, s), 1,
+					HPyBytes_GET_SIZE(ctx, s), fp);
+		}
+		else if (HPyUnicode_Check(ctx, s)) {
+			// PyObject *t;
+			// t = PyUnicode_AsEncodedString(s, "utf-8", "backslashreplace");
+			HPy t = HPyUnicode_AsUTF8String(ctx, s);
+			if (HPy_IsNull(t)) {
+				return;
+			}
+			else {
+				fwrite(HPyBytes_AS_STRING(ctx, t), 1,
+						HPyBytes_GET_SIZE(ctx, t), fp);
+				HPy_Close(ctx, t);
+			}
+		}
+		else {
+			return;
+		}
+		HPy_Close(ctx, s);
+    }
+    return;
+}
+
 static HPy
 Solver_dump( HPyContext *ctx, HPy h_self )
 {
     Solver* self = Solver::AsStruct( ctx, h_self );
 	HPy dump_str = HPyUnicode_FromString( ctx, self->solver.dumps().c_str() );
-	HPy_Print( ctx, dump_str, stdout, 0 );
+	Solver_Print( ctx, dump_str, stdout );
 	HPy_Close( ctx, dump_str );
 	return HPy_Dup( ctx, ctx->h_None );
 }
