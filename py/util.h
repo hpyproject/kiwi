@@ -173,7 +173,7 @@ reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expressio
     if( HPy_IsNull(terms) )
         return HPy_NULL;
     Expression* newexpr;
-    HPy pynewexpr = HPy_New(ctx, Expression::TypeObject, &newexpr);
+    HPy pynewexpr = new_from_global(ctx, Expression::TypeObject, &newexpr);
     if( HPy_IsNull(pynewexpr) )
         return HPy_NULL;
     HPyField_Store(ctx, pynewexpr, &newexpr->terms, terms);

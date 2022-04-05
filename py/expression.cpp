@@ -230,8 +230,8 @@ static HPyDef* Expression_defines[] = {
 } // namespace
 
 
-// Initialize static variables (otherwise the compiler eliminates them)
-HPy Expression::TypeObject = HPy_NULL;
+// Declare static variables (otherwise the compiler eliminates them)
+HPyGlobal Expression::TypeObject;
 
 
 HPyType_Spec Expression::TypeObject_Spec = {
@@ -245,17 +245,7 @@ HPyType_Spec Expression::TypeObject_Spec = {
 
 bool Expression::Ready( HPyContext *ctx, HPy m )
 {
-    // The reference will be handled by the module to which we will add the type
-    if (!HPyHelpers_AddType(ctx, m, "Expression", &TypeObject_Spec, NULL)) {
-        return false;
-    }
-
-    TypeObject = HPy_GetAttr_s(ctx, m, "Expression");
-    if( HPy_IsNull(TypeObject) )
-    {
-        return false;
-    }
-    return true;
+    return add_type( ctx , m , &TypeObject , "Expression" , &TypeObject_Spec );
 }
 
 }  // namesapce kiwisolver

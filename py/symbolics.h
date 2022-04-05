@@ -115,7 +115,7 @@ template<> inline
 HPy BinaryMul::operator()( HPyContext *ctx, Expression* first, double second, HPy h_first, HPy h_second )
 {
 	Expression* expr;
-	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
+	HPy pyexpr =  new_from_global( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
 	HPy first_terms = HPyField_Load(ctx, h_first, first->terms);
@@ -258,7 +258,7 @@ template<> inline
 HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Expression* second, HPy h_first, HPy h_second )
 {
 	Expression* expr;
-	HPy pyexpr = HPy_New( ctx, Expression::TypeObject, &expr );
+	HPy pyexpr = new_from_global( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
 	expr->constant = first->constant + second->constant;
@@ -291,7 +291,7 @@ template<> inline
 HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Term* second, HPy h_first, HPy h_second )
 {
 	Expression* expr;
-	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
+	HPy pyexpr =  new_from_global( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
 	HPy first_terms = HPyField_Load(ctx, h_first, first->terms);
@@ -328,7 +328,7 @@ template<> inline
 HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, double second, HPy h_first, HPy h_second )
 {
 	Expression* expr;
-	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
+	HPy pyexpr =  new_from_global( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
 	HPyField_Store(ctx, pyexpr, &expr->terms, HPyField_Load(ctx, h_first, first->terms));
@@ -341,7 +341,7 @@ template<> inline
 HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, double second, HPy h_first, HPy h_second )
 {
 	Expression* expr;
-	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
+	HPy pyexpr =  new_from_global( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
 	expr->constant = second;
@@ -367,7 +367,7 @@ template<> inline
 HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, Term* second, HPy h_first, HPy h_second )
 {
 	Expression* expr;
-	HPy pyexpr =  HPy_New( ctx, Expression::TypeObject, &expr );
+	HPy pyexpr =  new_from_global( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
 	expr->constant = 0.0;
