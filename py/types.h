@@ -17,17 +17,17 @@
 namespace kiwisolver
 {
 
-extern HPy DuplicateConstraint;
+extern HPyGlobal DuplicateConstraint;
 
-extern HPy UnsatisfiableConstraint;
+extern HPyGlobal UnsatisfiableConstraint;
 
-extern HPy UnknownConstraint;
+extern HPyGlobal UnknownConstraint;
 
-extern HPy DuplicateEditVariable;
+extern HPyGlobal DuplicateEditVariable;
 
-extern HPy UnknownEditVariable;
+extern HPyGlobal UnknownEditVariable;
 
-extern HPy BadRequiredStrength;
+extern HPyGlobal BadRequiredStrength;
 
 
 struct strength

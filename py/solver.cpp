@@ -41,6 +41,14 @@ Solver_dealloc( void *obj )
 	// Py_TYPE( self )->tp_free( pyobject_cast( self ) );
 }
 
+static void
+setObjectFromGlobal( HPyContext *ctx , HPyGlobal ex_type , HPy obj )
+{
+	HPy h_ex = HPyGlobal_Load(ctx, ex_type);
+	HPyErr_SetObject( ctx, h_ex, obj );
+	HPy_Close(ctx, h_ex);
+}
+
 
 static HPy
 Solver_addConstraint( HPyContext *ctx, HPy h_self, HPy other )
@@ -63,12 +71,12 @@ Solver_addConstraint( HPyContext *ctx, HPy h_self, HPy other )
 	}
 	catch( const kiwi::DuplicateConstraint& )
 	{
-		HPyErr_SetObject( ctx, DuplicateConstraint, other );
+		setObjectFromGlobal( ctx, DuplicateConstraint, other );
 		return HPy_NULL;
 	}
 	catch( const kiwi::UnsatisfiableConstraint& )
 	{
-		HPyErr_SetObject( ctx, UnsatisfiableConstraint, other );
+		setObjectFromGlobal( ctx, UnsatisfiableConstraint, other );
 		return HPy_NULL;
 	}
 	return HPy_Dup( ctx, ctx->h_None );
@@ -94,7 +102,7 @@ Solver_removeConstraint( HPyContext *ctx, HPy h_self, HPy other )
 	}
 	catch( const kiwi::UnknownConstraint& )
 	{
-		HPyErr_SetObject( ctx, UnknownConstraint, other );
+		setObjectFromGlobal( ctx, UnknownConstraint, other );
 		return HPy_NULL;
 	}
 	return HPy_Dup( ctx, ctx->h_None );
@@ -144,12 +152,14 @@ Solver_addEditVariable( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t narg
 	}
 	catch( const kiwi::DuplicateEditVariable& )
 	{
-		HPyErr_SetObject( ctx, DuplicateEditVariable, pyvar );
+		setObjectFromGlobal( ctx, DuplicateEditVariable, pyvar );
 		return HPy_NULL;
 	}
 	catch( const kiwi::BadRequiredStrength& e )
 	{
-		HPyErr_SetString( ctx, BadRequiredStrength, e.what() );
+		HPy h_ex = HPyGlobal_Load( ctx, BadRequiredStrength );
+		HPyErr_SetString( ctx, h_ex, e.what() );
+		HPy_Close( ctx , h_ex );
 		return HPy_NULL;
 	}
 	return HPy_Dup( ctx, ctx->h_None );
@@ -175,7 +185,7 @@ Solver_removeEditVariable( HPyContext *ctx, HPy h_self, HPy other )
 	}
 	catch( const kiwi::UnknownEditVariable& )
 	{
-		HPyErr_SetObject( ctx, UnknownEditVariable, other );
+		setObjectFromGlobal( ctx, UnknownEditVariable, other );
 		return HPy_NULL;
 	}
 	return HPy_Dup( ctx, ctx->h_None );
@@ -225,7 +235,7 @@ Solver_suggestValue( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
 	}
 	catch( const kiwi::UnknownEditVariable& )
 	{
-		HPyErr_SetObject( ctx, UnknownEditVariable, pyvar );
+		setObjectFromGlobal( ctx, UnknownEditVariable, pyvar );
 		return HPy_NULL;
 	}
 	return HPy_Dup( ctx, ctx->h_None );
@@ -388,64 +398,46 @@ bool Solver::Ready( HPyContext *ctx, HPy m )
 }
 
 
-HPy DuplicateConstraint;
+HPyGlobal DuplicateConstraint;
 
-HPy UnsatisfiableConstraint;
+HPyGlobal UnsatisfiableConstraint;
 
-HPy UnknownConstraint;
+HPyGlobal UnknownConstraint;
 
-HPy DuplicateEditVariable;
+HPyGlobal DuplicateEditVariable;
 
-HPy UnknownEditVariable;
+HPyGlobal UnknownEditVariable;
 
-HPy BadRequiredStrength;
+HPyGlobal BadRequiredStrength;
 
-
-bool init_exceptions( HPyContext *ctx, HPy mod )
+static bool init_exception( HPyContext *ctx, HPy mod, HPyGlobal *global,
+	const char *name, const char *attr_name )
 {
- 	DuplicateConstraint = HPyErr_NewException( ctx, "kiwisolver.DuplicateConstraint", HPy_NULL, HPy_NULL );
- 	if( HPy_IsNull( DuplicateConstraint) )
+ 	HPy h = HPyErr_NewException( ctx, name, HPy_NULL, HPy_NULL );
+ 	if( HPy_IsNull( h ) )
     {
         return false;
     }
+	HPyGlobal_Store( ctx , global , h );
+	int set_attr_failed = HPy_SetAttr_s( ctx, mod, attr_name, h );
+	HPy_Close(ctx, h);
+	return !set_attr_failed;
+}
 
-  	UnsatisfiableConstraint = HPyErr_NewException( ctx, "kiwisolver.UnsatisfiableConstraint", HPy_NULL, HPy_NULL );
- 	if( HPy_IsNull( UnsatisfiableConstraint ) )
- 	{
-        return false;
-    }
-
-  	UnknownConstraint = HPyErr_NewException( ctx, "kiwisolver.UnknownConstraint", HPy_NULL, HPy_NULL );
- 	if( HPy_IsNull( UnknownConstraint ) )
- 	{
-        return false;
-    }
-
-  	DuplicateEditVariable = HPyErr_NewException( ctx, "kiwisolver.DuplicateEditVariable", HPy_NULL, HPy_NULL );
- 	if( HPy_IsNull( DuplicateEditVariable ) )
- 	{
-        return false;
-    }
-
-  	UnknownEditVariable = HPyErr_NewException( ctx, "kiwisolver.UnknownEditVariable", HPy_NULL, HPy_NULL );
- 	if( HPy_IsNull( UnknownEditVariable ) )
- 	{
-        return false;
-    }
-
-  	BadRequiredStrength = HPyErr_NewException( ctx, "kiwisolver.BadRequiredStrength", HPy_NULL, HPy_NULL );
- 	if( HPy_IsNull( BadRequiredStrength ) )
- 	{
-        return false;
-    }
-
-    HPy_SetAttr_s( ctx, mod, "DuplicateConstraint", DuplicateConstraint );
-    HPy_SetAttr_s( ctx, mod, "UnsatisfiableConstraint", UnsatisfiableConstraint );
-    HPy_SetAttr_s( ctx, mod, "UnknownConstraint", UnknownConstraint );
-    HPy_SetAttr_s( ctx, mod, "DuplicateEditVariable", DuplicateEditVariable );
-    HPy_SetAttr_s( ctx, mod, "UnknownEditVariable", UnknownEditVariable );
-    HPy_SetAttr_s( ctx, mod, "BadRequiredStrength", BadRequiredStrength );
-
+bool init_exceptions( HPyContext *ctx, HPy mod )
+{
+ 	init_exception( ctx, mod , &DuplicateConstraint ,
+		"kiwisolver.DuplicateConstraint" , "DuplicateConstraint" );
+  	init_exception( ctx, mod , &UnsatisfiableConstraint,
+		"kiwisolver.UnsatisfiableConstraint" , "UnsatisfiableConstraint" );
+  	init_exception( ctx, mod , &UnknownConstraint ,
+		"kiwisolver.UnknownConstraint" , "UnknownConstraint" );
+  	init_exception( ctx, mod , &DuplicateEditVariable ,
+		"kiwisolver.DuplicateEditVariable" , "DuplicateEditVariable" );
+  	init_exception( ctx, mod , &UnknownEditVariable ,
+		"kiwisolver.UnknownEditVariable" , "UnknownEditVariable" );
+  	init_exception( ctx, mod , &BadRequiredStrength,
+		"kiwisolver.BadRequiredStrength" , "BadRequiredStrength" );
 	return true;
 }
 

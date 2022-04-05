@@ -97,11 +97,21 @@ catom_modexec( HPyContext *ctx, HPy mod )
     return 0;
 }
 
+static HPyGlobal *globals[] = {
+    &kiwisolver::DuplicateConstraint,
+    &kiwisolver::UnsatisfiableConstraint,
+    &kiwisolver::UnknownConstraint,
+    &kiwisolver::DuplicateEditVariable,
+    &kiwisolver::UnknownEditVariable,
+    &kiwisolver::BadRequiredStrength
+};
+
 
 static HPyModuleDef moduledef = {
     .name = "kiwisolver",
     .doc = "kiwisolver extension module",
     .size = 0,
+    .globals = globals,
 };
 
 }  // namespace
