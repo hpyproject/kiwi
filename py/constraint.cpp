@@ -155,7 +155,7 @@ Constraint_or(HPyContext *ctx, HPy pyoldcn, HPy value)
     if (!convert_to_strength(ctx, value, strength))
         return HPy_NULL;
     Constraint *newcn;
-    HPy pynewcn = HPy_New(ctx, Constraint::TypeObject, &newcn);
+    HPy pynewcn = new_from_global(ctx, Constraint::TypeObject, &newcn);
     if (HPy_IsNull(pynewcn))
         return HPy_NULL;
     Constraint *oldcn = Constraint::AsStruct(ctx, pyoldcn);
@@ -196,8 +196,8 @@ static HPyDef* Constraint_defines[] = {
 };
 } // namespace
 
-// Initialize static variables (otherwise the compiler eliminates them)
-HPy Constraint::TypeObject = HPy_NULL;
+// Declare static variables (otherwise the compiler eliminates them)
+HPyGlobal Constraint::TypeObject;
 
 HPyType_Spec Constraint::TypeObject_Spec = {
     .name = "kiwisolver.Constraint", /* tp_name */
@@ -209,17 +209,7 @@ HPyType_Spec Constraint::TypeObject_Spec = {
 
 bool Constraint::Ready(HPyContext *ctx, HPy m)
 {
-    // The reference will be handled by the module to which we will add the type
-    if (!HPyHelpers_AddType(ctx, m, "Constraint", &TypeObject_Spec, NULL)) {
-        return false;
-    }
-
-    TypeObject = HPy_GetAttr_s(ctx, m, "Constraint");
-    if( HPy_IsNull(TypeObject) )
-    {
-        return false;
-    }
-    return true;
+    return add_type( ctx , m , &TypeObject , "Constraint" , &TypeObject_Spec );
 }
 
 } // namespace kiwisolver

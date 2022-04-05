@@ -611,7 +611,9 @@ HPy makecn( HPyContext *ctx, T first, U second, kiwi::RelationalOperator op, HPy
 	HPy pyexpr = BinarySub()( ctx, first, second, h_first, h_second );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
-	HPy pycn =  HPyType_GenericNew( ctx, Constraint::TypeObject, NULL, 0, HPy_NULL );
+	HPy constraint_type = HPyGlobal_Load( ctx , Constraint::TypeObject );
+	HPy pycn =  HPyType_GenericNew( ctx, constraint_type , NULL, 0, HPy_NULL );
+	HPy_Close( ctx , constraint_type );
 	if( HPy_IsNull(pycn) )
 		return HPy_NULL;
 	Constraint* cn = Constraint_AsStruct( ctx, pycn );
