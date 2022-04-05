@@ -105,6 +105,11 @@ static HPyGlobal *globals[] = {
     &kiwisolver::UnknownEditVariable,
     &kiwisolver::BadRequiredStrength,
     &kiwisolver::Term::TypeObject,
+    &kiwisolver::Variable::TypeObject,
+    &kiwisolver::strength::TypeObject,
+    &kiwisolver::Expression::TypeObject,
+    &kiwisolver::Constraint::TypeObject,
+    &kiwisolver::Solver::TypeObject,
 };
 
 
