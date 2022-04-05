@@ -269,8 +269,8 @@ static HPyDef* Variable_defines[] = {
 } // namespace
 
 
-// Initialize static variables (otherwise the compiler eliminates them)
-HPy Variable::TypeObject = HPy_NULL;
+// Declare static variables (otherwise the compiler eliminates them)
+HPyGlobal Variable::TypeObject;
 
 
 HPyType_Spec Variable::TypeObject_Spec = {
@@ -284,17 +284,7 @@ HPyType_Spec Variable::TypeObject_Spec = {
 
 bool Variable::Ready( HPyContext *ctx, HPy m )
 {
-    // The reference will be handled by the module to which we will add the type
-    if (!HPyHelpers_AddType(ctx, m, "Variable", &TypeObject_Spec, NULL)) {
-        return false;
-    }
-
-    TypeObject = HPy_GetAttr_s(ctx, m, "Variable");
-    if( HPy_IsNull(TypeObject) )
-    {
-        return false;
-    }
-    return true;
+    return add_type( ctx , m , &TypeObject , "Variable" , &TypeObject_Spec );
 }
 
 }  // namespace kiwisolver
