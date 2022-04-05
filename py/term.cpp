@@ -206,8 +206,8 @@ static HPyDef* Term_defines[] = {
 } // namespace
 
 
-// Initialize static variables (otherwise the compiler eliminates them)
-HPy Term::TypeObject = HPy_NULL;
+// Declare static variables (otherwise the compiler eliminates them)
+HPyGlobal Term::TypeObject;
 
 
 HPyType_Spec Term::TypeObject_Spec = {
@@ -221,17 +221,7 @@ HPyType_Spec Term::TypeObject_Spec = {
 
 bool Term::Ready( HPyContext *ctx, HPy m )
 {
-    // The reference will be handled by the module to which we will add the type
-    if (!HPyHelpers_AddType(ctx, m, "Term", &TypeObject_Spec, NULL)) {
-        return false;
-    }
-
-    TypeObject = HPy_GetAttr_s(ctx, m, "Term");
-    if( HPy_IsNull(TypeObject) )
-    {
-        return false;
-    }
-    return true;
+    return add_type(ctx, m, &TypeObject, "Term", &TypeObject_Spec);
 }
 
 }  // namespace kiwisolver

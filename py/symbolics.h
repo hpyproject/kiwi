@@ -89,7 +89,7 @@ template<> inline
 HPy BinaryMul::operator()( HPyContext *ctx, Variable* first, double second, HPy h_first, HPy h_second )
 {
 	Term* term;
-	HPy pyterm =  HPy_New( ctx, Term::TypeObject, &term );
+	HPy pyterm =  new_from_global( ctx, Term::TypeObject, &term );
 	if( HPy_IsNull(pyterm) )
 		return HPy_NULL;
 	term->variable = HPy_Dup( ctx, h_first );
@@ -102,7 +102,7 @@ template<> inline
 HPy BinaryMul::operator()( HPyContext *ctx, Term* first, double second, HPy h_first, HPy h_second )
 {
 	Term* term;
-	HPy pyterm =  HPy_New( ctx, Term::TypeObject, &term );
+	HPy pyterm =  new_from_global( ctx, Term::TypeObject, &term );
 	if( HPy_IsNull(pyterm) )
 		return HPy_NULL;
 	term->variable = HPy_Dup( ctx, first->variable );

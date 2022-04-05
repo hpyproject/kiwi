@@ -124,6 +124,15 @@ convert_to_relational_op( HPyContext *ctx, HPy value, kiwi::RelationalOperator& 
 }
 
 
+inline HPy new_from_global( HPyContext *ctx , HPyGlobal type_global , void *data )
+{
+    HPy h_type = HPyGlobal_Load( ctx , type_global );
+    HPy res =  HPy_New( ctx, h_type, data );
+    HPy_Close( ctx , h_type );
+    return res;
+}
+
+
 inline HPy
 make_terms( HPyContext *ctx, const std::map<HPy*, double>& coeffs )
 {
@@ -138,7 +147,7 @@ make_terms( HPyContext *ctx, const std::map<HPy*, double>& coeffs )
     for( ; it != end; ++it, ++i )
     {
         Term* term;
-        HPy pyterm = HPy_New(ctx, Term::TypeObject, &term);
+        HPy pyterm = new_from_global(ctx, Term::TypeObject, &term);
         term->variable = HPy_Dup( ctx, *(it->first) );
         term->coefficient = it->second;
         HPyTupleBuilder_Set( ctx, terms, i, pyterm );
@@ -213,5 +222,19 @@ pyop_str( int op )
     }
 }
 
+inline bool add_type( HPyContext *ctx, HPy m , HPyGlobal *global , const char *name , HPyType_Spec *spec )
+{
+    HPy h_type = HPyType_FromSpec( ctx, spec , NULL );
+    if ( HPy_IsNull ( h_type ) ) {
+        return false;
+    }
+    if ( HPy_SetAttr_s ( ctx , m , name, h_type ) != 0) {
+        HPy_Close( ctx , h_type );
+        return false;
+    }
+    HPyGlobal_Store( ctx , global , h_type );
+    HPy_Close( ctx, h_type );
+    return true;
+}
 
 }  // namespace kiwisolver
