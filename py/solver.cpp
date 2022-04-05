@@ -369,8 +369,8 @@ static HPyDef* Solver_defines[] = {
 } // namespace
 
 
-// Initialize static variables (otherwise the compiler eliminates them)
-HPy Solver::TypeObject = HPy_NULL;
+// Declare static variables (otherwise the compiler eliminates them)
+HPyGlobal Solver::TypeObject;
 
 
 HPyType_Spec Solver::TypeObject_Spec = {
@@ -384,17 +384,7 @@ HPyType_Spec Solver::TypeObject_Spec = {
 
 bool Solver::Ready( HPyContext *ctx, HPy m )
 {
-    // The reference will be handled by the module to which we will add the type
-    if ( !HPyHelpers_AddType( ctx, m, "Solver", &TypeObject_Spec, NULL ) ) {
-        return false;
-    }
-
-    TypeObject = HPy_GetAttr_s( ctx, m, "Solver" );
-    if( HPy_IsNull( TypeObject ) )
-    {
-        return false;
-    }
-    return true;
+	return add_type( ctx , m , &TypeObject , "Solver" , &TypeObject_Spec );
 }
 
 

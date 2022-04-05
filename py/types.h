@@ -150,13 +150,16 @@ struct Solver
 
     static HPyType_Spec TypeObject_Spec;
 
-    static HPy TypeObject;
+    static HPyGlobal TypeObject;
 
 	static bool Ready( HPyContext *ctx, HPy m );
 
 	static bool TypeCheck( HPyContext *ctx, HPy obj )
 	{
-		return HPy_TypeCheck( ctx, obj, TypeObject ) != 0;
+		HPy h_type = HPyGlobal_Load( ctx , TypeObject );
+		bool result = HPy_TypeCheck( ctx, obj, h_type ) != 0;
+		HPy_Close( ctx , h_type );
+		return result;
 	}
 
 	static Solver* AsStruct(HPyContext *ctx, HPy obj) {
