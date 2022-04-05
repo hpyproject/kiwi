@@ -34,7 +34,7 @@ struct strength
 {
     static HPyType_Spec TypeObject_Spec;
 
-    static HPy TypeObject;
+    static HPyGlobal TypeObject;
 
 	static bool Ready( HPyContext *ctx, HPy m );
 };

@@ -112,8 +112,8 @@ static HPyDef* strength_defines[] = {
 } // namespace
 
 
-// Initialize static variables (otherwise the compiler eliminates them)
-HPy strength::TypeObject = HPy_NULL;
+// Declare static variables (otherwise the compiler eliminates them)
+HPyGlobal strength::TypeObject;
 
 
 HPyType_Spec strength::TypeObject_Spec = {
@@ -127,23 +127,15 @@ HPyType_Spec strength::TypeObject_Spec = {
 
 bool strength::Ready( HPyContext *ctx, HPy m )
 {
-    // The reference will be handled by the module to which we will add the type
-    if (!HPyHelpers_AddType(ctx, m, "strength", &TypeObject_Spec, NULL)) {
+    if ( ! add_type( ctx , m , &TypeObject , "strength" , &TypeObject_Spec ) ) {
         return false;
     }
 
-    TypeObject = HPy_GetAttr_s(ctx, m, "strength");
-	if( HPy_IsNull(TypeObject) ) {
-		return false;
-	}
-
 	strength* s;
-	HPy h_strength = HPy_New(ctx, TypeObject, &s);
+	HPy h_strength = new_from_global(ctx, TypeObject, &s);
     if( HPy_IsNull(h_strength) ) {
-		HPy_Close(ctx, TypeObject);
 		return false;
 	}
-	HPy_Close(ctx, TypeObject);
 	
 	if ( HPy_SetAttr_s(ctx, m, "strength", h_strength) )
     {
