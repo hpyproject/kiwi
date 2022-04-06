@@ -228,7 +228,7 @@ inline bool add_type( HPyContext *ctx, HPy m , HPyGlobal *global , const char *n
     if ( HPy_IsNull ( h_type ) ) {
         return false;
     }
-    if ( HPy_SetAttr_s ( ctx , m , name, h_type ) != 0) {
+    if ( HPy_SetAttr_s ( ctx , m , name, h_type ) < 0) {
         HPy_Close( ctx , h_type );
         return false;
     }

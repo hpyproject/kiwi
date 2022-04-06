@@ -110,6 +110,7 @@ static HPyGlobal *globals[] = {
     &kiwisolver::Expression::TypeObject,
     &kiwisolver::Constraint::TypeObject,
     &kiwisolver::Solver::TypeObject,
+    NULL,
 };
 
 
