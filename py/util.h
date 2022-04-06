@@ -7,10 +7,11 @@
 | The full license is in the file LICENSE, distributed with this software.
 |----------------------------------------------------------------------------*/
 #pragma once
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <kiwi/kiwi.h>
 #include "types.h"
+#include "hpy.h"
 
 
 namespace kiwisolver
@@ -134,23 +135,22 @@ inline HPy new_from_global( HPyContext *ctx , HPyGlobal type_global , void *data
 
 
 inline HPy
-make_terms( HPyContext *ctx, const std::map<HPy*, double>& coeffs )
+make_terms( HPyContext *ctx, const std::unordered_map<Variable*, double>& coeffs ,
+    const std::unordered_map<Variable*, HPy>& coeffs2hpy )
 {
-    typedef std::map<HPy*, double>::const_iterator iter_t;
     HPy_ssize_t size = coeffs.size();
     HPyTupleBuilder terms = HPyTupleBuilder_New( ctx, size );
-    // for( HPy_ssize_t i = 0; i < size; ++i ) // zero tuple for safe early return
-    //     HPyTupleBuilder_Set( ctx, terms, i, 0 );
     HPy_ssize_t i = 0;
-    iter_t it = coeffs.begin();
-    iter_t end = coeffs.end();
+    auto it = coeffs.begin();
+    auto end = coeffs.end();
     for( ; it != end; ++it, ++i )
     {
         Term* term;
         HPy pyterm = new_from_global(ctx, Term::TypeObject, &term);
-        term->variable = HPy_Dup( ctx, *(it->first) );
+        HPyField_Store( ctx , pyterm , &term->variable , coeffs2hpy.at(it->first) );
         term->coefficient = it->second;
         HPyTupleBuilder_Set( ctx, terms, i, pyterm );
+        HPy_Close( ctx , pyterm );
     }
     return HPyTupleBuilder_Build( ctx, terms );
 }
@@ -160,16 +160,25 @@ inline HPy
 reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expression
 {
     Expression* expr = Expression::AsStruct( ctx, pyexpr );
-    std::map<HPy*, double> coeffs;
     HPy expr_terms = HPyField_Load(ctx, pyexpr, expr->terms);
     HPy_ssize_t size = HPy_Length( ctx, expr_terms );
+    // Note: HPy handles cannot be simply compared to determine equality
+    // so we use the pointer to the associated struct
+    std::unordered_map<Variable*, double> coeffs(size);
+    std::unordered_map<Variable*, HPy> coeffs2hpy(size);
     for( HPy_ssize_t i = 0; i < size; ++i )
     {
         HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
-        coeffs[ &term->variable ] += term->coefficient;
+        HPy term_var = HPyField_Load( ctx , item , term->variable );
+        coeffs[ Variable::AsStruct( ctx , term_var ) ] += term->coefficient;
+        coeffs2hpy[ Variable::AsStruct( ctx , term_var ) ] = term_var;
     }
-    HPy terms = make_terms( ctx, coeffs );
+    HPy terms = make_terms( ctx, coeffs , coeffs2hpy );
+    for (auto& i : coeffs2hpy)
+    {
+        HPy_Close( ctx , i.second );
+    }
     if( HPy_IsNull(terms) )
         return HPy_NULL;
     Expression* newexpr;
@@ -193,9 +202,13 @@ convert_to_kiwi_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an 
     {
         HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
-        Variable* var = Variable::AsStruct( ctx, term->variable );
-        kterms.push_back( kiwi::Term( var->variable, term->coefficient ) );
+        HPy h_term_var = HPyField_Load( ctx , item , term->variable );
+        Variable* var = Variable::AsStruct( ctx, h_term_var );
+        kterms.push_back(kiwi::Term( var->variable , term->coefficient ));
+        HPy_Close( ctx , h_term_var );
+        HPy_Close( ctx , item );
     }
+    HPy_Close( ctx , expr_terms );
     return kiwi::Expression( kterms, expr->constant );
 }
 

@@ -92,7 +92,7 @@ HPy BinaryMul::operator()( HPyContext *ctx, Variable* first, double second, HPy 
 	HPy pyterm =  new_from_global( ctx, Term::TypeObject, &term );
 	if( HPy_IsNull(pyterm) )
 		return HPy_NULL;
-	term->variable = HPy_Dup( ctx, h_first );
+	HPyField_Store( ctx , pyterm , &term->variable , h_first );
 	term->coefficient = second;
 	return pyterm;
 }
@@ -105,7 +105,9 @@ HPy BinaryMul::operator()( HPyContext *ctx, Term* first, double second, HPy h_fi
 	HPy pyterm =  new_from_global( ctx, Term::TypeObject, &term );
 	if( HPy_IsNull(pyterm) )
 		return HPy_NULL;
-	term->variable = HPy_Dup( ctx, first->variable );
+	HPy first_var = HPyField_Load( ctx , h_first , first->variable );
+	HPyField_Store( ctx , pyterm , &term->variable , first_var );
+	HPy_Close( ctx , first_var );
 	term->coefficient = first->coefficient * second;
 	return pyterm;
 }

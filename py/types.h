@@ -68,7 +68,7 @@ HPyType_HELPERS(Variable)
 
 struct Term
 {
-	HPy variable;
+	HPyField variable;
 	double coefficient;
 
     static HPyType_Spec TypeObject_Spec;

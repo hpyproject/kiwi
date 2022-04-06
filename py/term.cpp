@@ -51,7 +51,7 @@ Term_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
         HPyTracker_Close(ctx, ht);
         return HPy_NULL;
     }
-	self->variable = HPy_Dup( ctx, pyvar );
+	HPyField_Store( ctx, pyterm , &self->variable , pyvar );
 	self->coefficient = coefficient;
 	return pyterm;
 }
@@ -73,7 +73,9 @@ Term_repr( HPyContext *ctx, HPy h_self )
 	Term* self = Term::AsStruct(ctx, h_self);
 	std::stringstream stream;
 	stream << self->coefficient << " * ";
-	stream << Variable::AsStruct( ctx, self->variable )->variable.name();
+	HPy term_var = HPyField_Load( ctx , h_self, self->variable );
+	stream << Variable::AsStruct( ctx, term_var )->variable.name();
+	HPy_Close( ctx , term_var );
 	return HPyUnicode_FromString( ctx, stream.str().c_str() );
 }
 
@@ -82,7 +84,7 @@ static HPy
 Term_variable( HPyContext *ctx, HPy h_self )
 {
 	Term* self = Term::AsStruct(ctx, h_self);
-	return HPy_Dup( ctx, self->variable );
+	return HPyField_Load( ctx , h_self ,  self->variable );
 }
 
 
@@ -98,8 +100,11 @@ static HPy
 Term_value( HPyContext *ctx, HPy h_self )
 {
 	Term* self = Term::AsStruct(ctx, h_self);
-	Variable* pyvar = Variable::AsStruct( ctx, self->variable );
-	return HPyFloat_FromDouble( ctx, self->coefficient * pyvar->variable.value() );
+	HPy self_var = HPyField_Load( ctx , h_self , self->variable );
+	Variable* pyvar = Variable::AsStruct( ctx, self_var );
+	HPy result = HPyFloat_FromDouble( ctx, self->coefficient * pyvar->variable.value() );
+	HPy_Close( ctx , self_var );
+	return result;
 }
 
 

@@ -86,8 +86,11 @@ Expression_repr( HPyContext *ctx, HPy h_self )
         HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
         stream << term->coefficient << " * ";
-        stream << Variable::AsStruct( ctx, term->variable )->variable.name();
+        HPy term_var = HPyField_Load( ctx , item , term->variable );
+        stream << Variable::AsStruct( ctx, term_var )->variable.name();
         stream << " + ";
+        HPy_Close( ctx , item );
+        HPy_Close( ctx , term_var );
     }
     stream << self->constant;
     return HPyUnicode_FromString( ctx, stream.str().c_str() );
@@ -98,8 +101,7 @@ static HPy
 Expression_terms( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
-    HPy expr_terms = HPyField_Load(ctx, h_self, self->terms);
-    return HPy_Dup( ctx, expr_terms );
+    return HPyField_Load(ctx, h_self, self->terms);
 }
 
 
@@ -122,8 +124,10 @@ Expression_value( HPyContext *ctx, HPy h_self )
     {
         HPy item = HPy_GetItem_i( ctx, expr_terms, i );
         Term* term = Term::AsStruct( ctx, item );
-        Variable* pyvar = Variable::AsStruct( ctx, term->variable );
+        HPy term_var = HPyField_Load( ctx , item , term->variable );
+        Variable* pyvar = Variable::AsStruct( ctx, term_var );
         result += term->coefficient * pyvar->variable.value();
+        HPy_Close( ctx , term_var );
     }
     return HPyFloat_FromDouble( ctx, result );
 }

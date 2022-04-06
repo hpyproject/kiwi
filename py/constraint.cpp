@@ -92,9 +92,13 @@ Constraint_repr(HPyContext *ctx, HPy h_self)
         HPy item = HPy_GetItem_i(ctx, expr_terms, i);
         Term *term = Term::AsStruct(ctx, item);
         stream << term->coefficient << " * ";
-        stream << Variable::AsStruct(ctx, term->variable)->variable.name();
+        HPy var = HPyField_Load( ctx , item , term->variable );
+        stream << Variable::AsStruct(ctx, var)->variable.name();
         stream << " + ";
+        HPy_Close( ctx , var );
+        HPy_Close( ctx , item );
     }
+    HPy_Close( ctx , expr_terms );
     stream << expr->constant;
     switch (self->constraint.op())
     {
@@ -116,7 +120,7 @@ static HPy
 Constraint_expression(HPyContext *ctx, HPy h_self)
 {
     Constraint* self = Constraint_AsStruct(ctx, h_self);
-    return HPy_Dup(ctx, HPyField_Load(ctx, h_self, self->expression));
+    return HPyField_Load(ctx, h_self, self->expression);
 }
 
 static HPy 
