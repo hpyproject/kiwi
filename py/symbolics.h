@@ -322,7 +322,9 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Variable* second,
 	HPy temp = BinaryMul()( ctx, second, 1.0, h_second, HPy_NULL );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return operator()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = operator()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -333,7 +335,9 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, double second, HP
 	HPy pyexpr =  new_from_global( ctx, Expression::TypeObject, &expr );
 	if( HPy_IsNull(pyexpr) )
 		return HPy_NULL;
-	HPyField_Store(ctx, pyexpr, &expr->terms, HPyField_Load(ctx, h_first, first->terms));
+	HPy first_terms = HPyField_Load(ctx, h_first, first->terms);
+	HPyField_Store(ctx, pyexpr, &expr->terms, first_terms);
+	HPy_Close(ctx, first_terms);
 	expr->constant = first->constant + second;
 	return pyexpr;
 }
@@ -354,6 +358,7 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, double second, HPy h_fi
 	if( HPy_IsNull(terms_tuple) )
 		return HPy_NULL;
 	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
+	HPy_Close(ctx, terms_tuple);
 	return pyexpr;
 }
 
@@ -381,6 +386,7 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, Term* second, HPy h_fir
 	if( HPy_IsNull(terms_tuple) )
 		return HPy_NULL;
 	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
+	HPy_Close(ctx, terms_tuple);
 	return pyexpr;
 }
 
@@ -391,7 +397,9 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, Variable* second, HPy h
 	HPy temp = BinaryMul()( ctx, second, 1.0, h_second, HPy_NULL );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -401,7 +409,9 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Variable* first, double second, HPy 
 	HPy temp = BinaryMul()( ctx, first, 1.0, h_first, HPy_NULL );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy result = operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -411,7 +421,9 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Variable* first, Variable* second, H
 	HPy temp = BinaryMul()( ctx, first, 1.0, h_first, HPy_NULL );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy result = operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -421,7 +433,9 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Variable* first, Term* second, HPy h
 	HPy temp = BinaryMul()( ctx, first, 1.0, h_first, HPy_NULL );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy result = operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -431,7 +445,9 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Variable* first, Expression* second,
 	HPy temp = BinaryMul()( ctx, first, 1.0, h_first, HPy_NULL );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy result = operator()( ctx, Term_AsStruct( ctx, temp ), second, temp, h_second );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -479,7 +495,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Variable* first, Variable* second, H
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -489,7 +507,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Variable* first, Term* second, HPy h
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -499,7 +519,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Variable* first, Expression* second,
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -516,7 +538,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Term* first, Variable* second, HPy h
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -526,7 +550,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Term* first, Term* second, HPy h_fir
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -536,7 +562,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Term* first, Expression* second, HPy
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -553,7 +581,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Expression* first, Variable* second,
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -563,7 +593,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Expression* first, Term* second, HPy
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -573,7 +605,9 @@ HPy BinarySub::operator()( HPyContext *ctx, Expression* first, Expression* secon
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), h_first, temp );
+	HPy result = BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), h_first, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -583,7 +617,9 @@ HPy BinarySub::operator()( HPyContext *ctx, double first, Variable* second, HPy 
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), HPy_NULL, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), HPy_NULL, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -593,7 +629,9 @@ HPy BinarySub::operator()( HPyContext *ctx, double first, Term* second, HPy h_fi
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), HPy_NULL, temp );
+	HPy result = BinaryAdd()( ctx, first, Term_AsStruct( ctx, temp ), HPy_NULL, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
@@ -603,7 +641,9 @@ HPy BinarySub::operator()( HPyContext *ctx, double first, Expression* second, HP
 	HPy temp = UnaryNeg()( ctx, second, h_second );
 	if( HPy_IsNull(temp) )
 		return HPy_NULL;
-	return BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), HPy_NULL, temp );
+	HPy result = BinaryAdd()( ctx, first, Expression_AsStruct( ctx, temp ), HPy_NULL, temp );
+	HPy_Close( ctx , temp );
+	return result;
 }
 
 
