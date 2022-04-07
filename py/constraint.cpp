@@ -56,11 +56,13 @@ Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwar
     }
     HPy red_expr = reduce_expression(ctx, pyexpr);
     if (HPy_IsNull(red_expr)) {
+        HPy_Close( ctx , pycn );
         HPyTracker_Close(ctx, ht);
         return HPy_NULL;
     }
     HPyField_Store(ctx, pycn, &cn->expression, red_expr);
     kiwi::Expression expr(convert_to_kiwi_expression(ctx, red_expr));
+    HPy_Close( ctx , red_expr );
     new (&cn->constraint) kiwi::Constraint(expr, op, strength);
     return pycn;
 }
@@ -85,11 +87,18 @@ Constraint_repr(HPyContext *ctx, HPy h_self)
     std::stringstream stream;
     HPy h_expr = HPyField_Load(ctx, h_self, self->expression);
     Expression *expr = Expression::AsStruct(ctx, h_expr);
+    double expr_constant = expr->constant;
     HPy expr_terms = HPyField_Load(ctx, h_expr, expr->terms);
     HPy_ssize_t size = HPy_Length(ctx, expr_terms);
+    HPy_Close( ctx , h_expr );
     for (HPy_ssize_t i = 0; i < size; ++i)
     {
         HPy item = HPy_GetItem_i(ctx, expr_terms, i);
+        if ( HPy_IsNull( item ) )
+        {
+            HPy_Close( ctx , expr_terms );
+            return HPy_NULL;
+        }
         Term *term = Term::AsStruct(ctx, item);
         stream << term->coefficient << " * ";
         HPy var = HPyField_Load( ctx , item , term->variable );
@@ -99,7 +108,7 @@ Constraint_repr(HPyContext *ctx, HPy h_self)
         HPy_Close( ctx , item );
     }
     HPy_Close( ctx , expr_terms );
-    stream << expr->constant;
+    stream << expr_constant;
     switch (self->constraint.op())
     {
     case kiwi::OP_EQ:
@@ -163,7 +172,9 @@ Constraint_or(HPyContext *ctx, HPy pyoldcn, HPy value)
     if (HPy_IsNull(pynewcn))
         return HPy_NULL;
     Constraint *oldcn = Constraint::AsStruct(ctx, pyoldcn);
-    HPyField_Store(ctx, pynewcn, &newcn->expression, HPyField_Load(ctx, pyoldcn, oldcn->expression));
+    HPy pyoldcn_expr = HPyField_Load(ctx, pyoldcn, oldcn->expression);
+    HPyField_Store(ctx, pynewcn, &newcn->expression, pyoldcn_expr);
+    HPy_Close( ctx , pyoldcn_expr );
     new (&newcn->constraint) kiwi::Constraint(oldcn->constraint, strength);
     return pynewcn;
 }
