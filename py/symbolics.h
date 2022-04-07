@@ -399,7 +399,10 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, double second, HPy h_fi
 	};
 	HPy terms_tuple = HPyTuple_FromArray( ctx, items, 1 );
 	if( HPy_IsNull(terms_tuple) )
+	{
+		HPy_Close( ctx , pyexpr );
 		return HPy_NULL;
+	}
 	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
 	HPy_Close(ctx, terms_tuple);
 	return pyexpr;
@@ -427,7 +430,10 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Term* first, Term* second, HPy h_fir
 	};
 	HPy terms_tuple = HPyTuple_FromArray( ctx, items, 2 );
 	if( HPy_IsNull(terms_tuple) )
+	{
+		HPy_Close( ctx , pyexpr );
 		return HPy_NULL;
+	}
 	HPyField_Store(ctx, pyexpr, &expr->terms, terms_tuple);
 	HPy_Close(ctx, terms_tuple);
 	return pyexpr;
@@ -700,13 +706,22 @@ HPy makecn( HPyContext *ctx, T first, U second, kiwi::RelationalOperator op, HPy
 	HPy pycn =  HPyType_GenericNew( ctx, constraint_type , NULL, 0, HPy_NULL );
 	HPy_Close( ctx , constraint_type );
 	if( HPy_IsNull(pycn) )
+	{
+		HPy_Close( ctx , pyexpr );
 		return HPy_NULL;
+	}
 	Constraint* cn = Constraint_AsStruct( ctx, pycn );
 	HPy red_expr = reduce_expression( ctx, pyexpr );
 	if( HPy_IsNull(red_expr) )
+	{
+		HPy_Close( ctx , pyexpr );
+		HPy_Close( ctx , pycn );
 		return HPy_NULL;
+	}
 	HPyField_Store(ctx, pycn, &cn->expression, red_expr);
 	kiwi::Expression expr( convert_to_kiwi_expression( ctx, red_expr ) );
+	HPy_Close( ctx , pyexpr );
+	HPy_Close( ctx , red_expr );
 	new( &cn->constraint ) kiwi::Constraint( expr, op, kiwi::strength::required );
 	return pycn;
 }
