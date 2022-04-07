@@ -147,6 +147,11 @@ make_terms( HPyContext *ctx, const std::unordered_map<Variable*, double>& coeffs
     {
         Term* term;
         HPy pyterm = new_from_global(ctx, Term::TypeObject, &term);
+        if ( HPy_IsNull ( pyterm) )
+        {
+            HPyTupleBuilder_Cancel( ctx , terms );
+            return HPy_NULL;
+        }
         HPyField_Store( ctx , pyterm , &term->variable , coeffs2hpy.at(it->first) );
         term->coefficient = it->second;
         HPyTupleBuilder_Set( ctx, terms, i, pyterm );
@@ -166,18 +171,29 @@ reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expressio
     // so we use the pointer to the associated struct
     std::unordered_map<Variable*, double> coeffs(size);
     std::unordered_map<Variable*, HPy> coeffs2hpy(size);
+    std::vector<HPy> opened_handles(size);
+    bool was_error = false;
     for( HPy_ssize_t i = 0; i < size; ++i )
     {
         HPy item = HPy_GetItem_i( ctx, expr_terms, i );
+        if ( HPy_IsNull( item ) )
+        {
+            was_error = true;
+            break;
+        }
         Term* term = Term::AsStruct( ctx, item );
         HPy term_var = HPyField_Load( ctx , item , term->variable );
         coeffs[ Variable::AsStruct( ctx , term_var ) ] += term->coefficient;
         coeffs2hpy[ Variable::AsStruct( ctx , term_var ) ] = term_var;
+        opened_handles.push_back(term_var);
     }
-    HPy terms = make_terms( ctx, coeffs , coeffs2hpy );
-    for (auto& i : coeffs2hpy)
+    HPy_Close( ctx , expr_terms );
+    HPy terms = HPy_NULL;
+    if (!was_error)
+        terms = make_terms( ctx, coeffs , coeffs2hpy );    
+    for (auto& h : opened_handles)
     {
-        HPy_Close( ctx , i.second );
+        HPy_Close( ctx , h );
     }
     if( HPy_IsNull(terms) )
         return HPy_NULL;
@@ -186,6 +202,7 @@ reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expressio
     if( HPy_IsNull(pynewexpr) )
         return HPy_NULL;
     HPyField_Store(ctx, pynewexpr, &newexpr->terms, terms);
+    HPy_Close( ctx , terms );
     newexpr->constant = expr->constant;
     return pynewexpr;
 }
