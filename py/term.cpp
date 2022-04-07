@@ -61,8 +61,8 @@ Term_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
 static int
 Term_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 {
-	// Term* self = (Term*)obj;
-	// PyObject_GC_UnTrack( self );
+	Term *t = (Term*) obj;
+	HPy_VISIT(&t->variable);
 	return 0;
 }
 
