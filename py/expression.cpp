@@ -34,14 +34,16 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
     for( HPy_ssize_t i = 0; i < end; ++i )
     {
         HPy item = HPy_GetItem_i( ctx, pyterms, i );
-        if( !Term::TypeCheck( ctx, item ) ) {
+        if( HPy_IsNull( item ) || !Term::TypeCheck( ctx, item ) ) {
             // PyErr_Format(
             //     PyExc_TypeError,
             //     "Expected object of type `%s`. Got object of type `%s` instead.",
             //     expected,
             //     ob->ob_type->tp_name );
-            HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Term`.") ;
+            HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Term`.");
+            HPy_Close( ctx , item ); // XCLOSE
             HPyTracker_Close(ctx, ht);
+            HPyTupleBuilder_Cancel( ctx , terms );
             return HPy_NULL;
         }
         HPyTupleBuilder_Set( ctx, terms, i, item );
@@ -49,17 +51,19 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
     }
     double constant = 0.0;
     if( !HPy_IsNull(pyconstant) && !convert_to_double( ctx, pyconstant, constant ) ) {
+        HPyTupleBuilder_Cancel( ctx , terms );
         HPyTracker_Close(ctx, ht);
         return HPy_NULL;
     }
-    Expression* self;
-    HPy pyexpr = HPy_New(ctx, type, &self);
     HPy terms_tuple = HPyTupleBuilder_Build( ctx, terms );
     if (HPy_IsNull(terms_tuple)) {
         HPyTracker_Close(ctx, ht);
         return HPy_NULL;
     }
+    Expression* self;
+    HPy pyexpr = HPy_New(ctx, type, &self);
     HPyField_Store(ctx, pyexpr, &self->terms, terms_tuple);
+    HPy_Close( ctx , terms_tuple );
     self->constant = constant;
     return pyexpr;
 }
@@ -84,6 +88,11 @@ Expression_repr( HPyContext *ctx, HPy h_self )
     for( HPy_ssize_t i = 0; i < end; ++i )
     {
         HPy item = HPy_GetItem_i( ctx, expr_terms, i );
+        if ( HPy_IsNull( item ) )
+        {
+            HPy_Close( ctx , expr_terms );
+            return HPy_NULL;
+        }
         Term* term = Term::AsStruct( ctx, item );
         stream << term->coefficient << " * ";
         HPy term_var = HPyField_Load( ctx , item , term->variable );
@@ -92,6 +101,7 @@ Expression_repr( HPyContext *ctx, HPy h_self )
         HPy_Close( ctx , item );
         HPy_Close( ctx , term_var );
     }
+    HPy_Close( ctx , expr_terms );
     stream << self->constant;
     return HPyUnicode_FromString( ctx, stream.str().c_str() );
 }
@@ -123,12 +133,19 @@ Expression_value( HPyContext *ctx, HPy h_self )
     for( HPy_ssize_t i = 0; i < size; ++i )
     {
         HPy item = HPy_GetItem_i( ctx, expr_terms, i );
+        if ( HPy_IsNull( item ) )
+        {
+            HPy_Close( ctx , expr_terms );
+            return HPy_NULL;
+        }
         Term* term = Term::AsStruct( ctx, item );
         HPy term_var = HPyField_Load( ctx , item , term->variable );
         Variable* pyvar = Variable::AsStruct( ctx, term_var );
         result += term->coefficient * pyvar->variable.value();
         HPy_Close( ctx , term_var );
+        HPy_Close( ctx , item );
     }
+    HPy_Close( ctx , expr_terms );
     return HPyFloat_FromDouble( ctx, result );
 }
 

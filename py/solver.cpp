@@ -287,6 +287,7 @@ Solver_Print(HPyContext *ctx, HPy op, FILE *fp)
 			// t = PyUnicode_AsEncodedString(s, "utf-8", "backslashreplace");
 			HPy t = HPyUnicode_AsUTF8String(ctx, s);
 			if (HPy_IsNull(t)) {
+				HPy_Close(ctx, s);
 				return;
 			}
 			else {
@@ -296,6 +297,7 @@ Solver_Print(HPyContext *ctx, HPy op, FILE *fp)
 			}
 		}
 		else {
+			HPy_Close(ctx, s);
 			return;
 		}
 		HPy_Close(ctx, s);
