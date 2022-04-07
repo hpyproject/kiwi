@@ -26,33 +26,34 @@ Term_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
 	static const char *kwlist[] = { "variable", "coefficient", 0 };
 	HPy pyvar;
 	HPy pycoeff = HPy_NULL;
-    HPyTracker ht;
+	HPyTracker ht;
 	if( !HPyArg_ParseKeywords(ctx, &ht, args, nargs,
 		kwargs, "O|O:__new__", (const char **) kwlist,
 		&pyvar, &pycoeff ) )
-        return HPy_NULL;
+		return HPy_NULL;
 	if( !Variable::TypeCheck( ctx, pyvar ) ){
 		// PyErr_Format(
 		// 	PyExc_TypeError,
 		// 	"Expected object of type `Variable`. Got object of type `%s` instead.",
 		// 	pyvar->ob_type->tp_name );
 		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Variable`." );
-        HPyTracker_Close(ctx, ht);
+		HPyTracker_Close(ctx, ht);
 		return HPy_NULL;
 	}
 	double coefficient = 1.0;
 	if( !HPy_IsNull(pycoeff) && !convert_to_double( ctx, pycoeff, coefficient ) ) {
-        HPyTracker_Close(ctx, ht);
-        return HPy_NULL;
-    }
+		HPyTracker_Close(ctx, ht);
+		return HPy_NULL;
+	}
 	Term* self;
-    HPy pyterm = HPy_New(ctx, type, &self);
+	HPy pyterm = HPy_New(ctx, type, &self);
 	if( HPy_IsNull(pyterm) ) {
-        HPyTracker_Close(ctx, ht);
-        return HPy_NULL;
-    }
+		HPyTracker_Close(ctx, ht);
+		return HPy_NULL;
+	}
 	HPyField_Store( ctx, pyterm , &self->variable , pyvar );
 	self->coefficient = coefficient;
+	HPyTracker_Close(ctx, ht);
 	return pyterm;
 }
 
