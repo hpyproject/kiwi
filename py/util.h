@@ -186,6 +186,7 @@ reduce_expression( HPyContext *ctx, HPy pyexpr )  // pyexpr must be an Expressio
         coeffs[ Variable::AsStruct( ctx , term_var ) ] += term->coefficient;
         coeffs2hpy[ Variable::AsStruct( ctx , term_var ) ] = term_var;
         opened_handles.push_back(term_var);
+        HPy_Close( ctx , item );
     }
     HPy_Close( ctx , expr_terms );
     HPy terms = HPy_NULL;

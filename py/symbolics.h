@@ -342,7 +342,8 @@ HPy BinaryAdd::operator()( HPyContext *ctx, Expression* first, Term* second, HPy
 			HPyTupleBuilder_Cancel( ctx, terms );
 			return HPy_NULL;
 		}
-		HPyTupleBuilder_Set( ctx, terms, i, HPy_Dup( ctx, item ) );
+		HPyTupleBuilder_Set( ctx, terms, i, item );
+		HPy_Close( ctx , item );
 	}
 	HPy_Close( ctx , first_terms );
 	HPyTupleBuilder_Set( ctx, terms, end, h_second);

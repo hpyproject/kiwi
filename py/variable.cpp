@@ -36,7 +36,10 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
 	Variable* self;
 	HPy pyvar = HPy_New(ctx, type, &self);
 	if( HPy_IsNull(pyvar) )
+	{
+		HPyTracker_Close( ctx , ht );
 		return HPy_NULL;
+	}
 
 	HPyField_Store(ctx, pyvar, &self->context, context);
 
@@ -50,11 +53,13 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
             HPyErr_SetString( ctx,
                 ctx->h_TypeError,
                 "Expected object of type `str`.");
+            HPy_Close( ctx , pyvar );
             HPyTracker_Close(ctx, ht);
             return HPy_NULL;
         }
 		std::string c_name;
 		if( !convert_pystr_to_str(ctx, name, c_name) ) {
+			HPy_Close( ctx , pyvar );
 			HPyTracker_Close(ctx, ht);
 			return HPy_NULL;  // LCOV_EXCL_LINE
 		}
@@ -65,6 +70,7 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
 		new( &self->variable ) kiwi::Variable();
 	}
 
+	HPyTracker_Close( ctx , ht );
 	return pyvar;
 }
 
@@ -132,7 +138,7 @@ Variable_context( HPyContext *ctx, HPy h_self )
 	if( !HPyField_IsNull(self->context) ) {
 		HPy context = HPyField_Load(ctx, h_self, self->context);
 		if (!HPy_IsNull(context)) {
-			return HPy_Dup( ctx, HPyField_Load(ctx, h_self, self->context) );
+			return context;
 		}
 	}
 	return HPy_Dup( ctx, ctx->h_None );

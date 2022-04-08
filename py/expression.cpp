@@ -63,6 +63,7 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
     Expression* self;
     HPy pyexpr = HPy_New(ctx, type, &self);
     HPyField_Store(ctx, pyexpr, &self->terms, terms_tuple);
+    HPyTracker_Close(ctx, ht);
     HPy_Close( ctx , terms_tuple );
     self->constant = constant;
     return pyexpr;

@@ -35,6 +35,7 @@ Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwar
         //     PyExc_TypeError,
         //     "Expected object of type `Expression`. Got object of type `%s` instead.",
         //     ob->ob_type->tp_name );
+        HPyTracker_Close( ctx , ht );
         HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Expression`." );
         return HPy_NULL;
     }
@@ -62,6 +63,7 @@ Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwar
     }
     HPyField_Store(ctx, pycn, &cn->expression, red_expr);
     kiwi::Expression expr(convert_to_kiwi_expression(ctx, red_expr));
+    HPyTracker_Close( ctx , ht );
     HPy_Close( ctx , red_expr );
     new (&cn->constraint) kiwi::Constraint(expr, op, strength);
     return pycn;
