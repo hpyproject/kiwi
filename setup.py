@@ -1,5 +1,6 @@
 #------------------------------------------------------------------------------
 # Copyright (c) 2013-2020, Nucleic Development Team.
+# Copyright (c) 2022, Oracle and/or its affiliates.
 #
 # Distributed under the terms of the Modified BSD License.
 #
