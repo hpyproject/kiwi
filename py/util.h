@@ -76,8 +76,8 @@ convert_to_strength( HPyContext *ctx, HPy value, double& out )
             // );
             HPyErr_SetString(ctx,
                 ctx->h_ValueError,
-                "string strength must be 'required', 'strong', 'medium', "
-                "or 'weak'"
+                ("string strength must be 'required', 'strong', 'medium', "
+                 "or 'weak', not '" + str + "'").c_str()
             );
             return false;
         }
