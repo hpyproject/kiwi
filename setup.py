@@ -59,4 +59,5 @@ setup(
     python_requires='>=3.7',
     setup_requires=['hpy>0.0.2'],
     hpy_ext_modules=ext_modules,
+    ext_modules=[]
 )
