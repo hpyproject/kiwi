@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -77,8 +77,8 @@ bool add_objects( HPyContext *ctx, HPy mod )
 }
 
 
-int
-catom_modexec( HPyContext *ctx, HPy mod )
+HPyDef_SLOT(kiwisolver_exec, HPy_mod_exec)
+static int kiwisolver_exec_impl(HPyContext *ctx, HPy mod)
 {
     if( !ready_types( ctx, mod ) )
     {
@@ -96,6 +96,11 @@ catom_modexec( HPyContext *ctx, HPy mod )
 
     return 0;
 }
+
+static HPyDef *defines[] = {
+    &kiwisolver_exec,
+    NULL
+};
 
 static HPyGlobal *globals[] = {
     &kiwisolver::DuplicateConstraint,
@@ -115,9 +120,9 @@ static HPyGlobal *globals[] = {
 
 
 static HPyModuleDef moduledef = {
-    .name = "kiwisolver",
     .doc = "kiwisolver extension module",
     .size = 0,
+    .defines = defines,
     .globals = globals,
 };
 
@@ -125,14 +130,6 @@ static HPyModuleDef moduledef = {
 
 extern "C" {
 
-HPy_MODINIT(kiwisolver)
-static HPy init_kiwisolver_impl(HPyContext *ctx)
-{
-    HPy m = HPyModule_Create(ctx, &moduledef);
-    if (HPy_IsNull(m) || catom_modexec( ctx, m ) == -1 ) {
-        return HPy_NULL;
-    }
-    return m;
-}
+HPy_MODINIT(kiwisolver, moduledef)
 
 }

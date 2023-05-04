@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -17,8 +17,9 @@ namespace kiwisolver
 namespace
 {
 
+HPyDef_SLOT(Solver_new, HPy_tp_new)
 static HPy
-Solver_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
+Solver_new_impl( HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kwargs )
 {
 	if( nargs != 0 || ( !HPy_IsNull(kwargs) && HPy_Length( ctx, kwargs ) != 0 ) ) {
 		HPyErr_SetString( ctx, ctx->h_TypeError, "Solver.__new__ takes no arguments" );
@@ -33,8 +34,9 @@ Solver_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs 
 }
 
 
+HPyDef_SLOT(Solver_dealloc, HPy_tp_destroy)
 static void
-Solver_dealloc( void *obj )
+Solver_dealloc_impl( void *obj )
 {
     Solver* self = (Solver*)obj;
 	self->solver.~Solver();
@@ -50,10 +52,12 @@ setObjectFromGlobal( HPyContext *ctx , HPyGlobal ex_type , HPy obj )
 }
 
 
+HPyDef_METH(Solver_addConstraint, "addConstraint", HPyFunc_O,
+	.doc = "Add a constraint to the solver.")
 static HPy
-Solver_addConstraint( HPyContext *ctx, HPy h_self, HPy other )
+Solver_addConstraint_impl( HPyContext *ctx, HPy h_self, HPy other )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	if( !Constraint::TypeCheck( ctx, other ) ) {
 		// PyErr_Format(
 		//     PyExc_TypeError,
@@ -64,7 +68,7 @@ Solver_addConstraint( HPyContext *ctx, HPy h_self, HPy other )
 			"Expected object of type `Constraint`.");
 		return HPy_NULL;
 	}
-	Constraint* cn = Constraint::AsStruct( ctx, other );
+	Constraint* cn = Constraint_AsStruct( ctx, other );
 	try
 	{
 		self->solver.addConstraint( cn->constraint );
@@ -83,10 +87,12 @@ Solver_addConstraint( HPyContext *ctx, HPy h_self, HPy other )
 }
 
 
+HPyDef_METH(Solver_removeConstraint, "removeConstraint", HPyFunc_O,
+	.doc = "Remove a constraint from the solver.")
 static HPy
-Solver_removeConstraint( HPyContext *ctx, HPy h_self, HPy other )
+Solver_removeConstraint_impl( HPyContext *ctx, HPy h_self, HPy other )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	if( !Constraint::TypeCheck( ctx, other ) ) {
 		// PyErr_Format(
 		//     PyExc_TypeError,
@@ -95,7 +101,7 @@ Solver_removeConstraint( HPyContext *ctx, HPy h_self, HPy other )
 		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Constraint`." );
 		return HPy_NULL;
 	}
-	Constraint* cn = Constraint::AsStruct( ctx, other );
+	Constraint* cn = Constraint_AsStruct( ctx, other );
 	try
 	{
 		self->solver.removeConstraint( cn->constraint );
@@ -109,10 +115,12 @@ Solver_removeConstraint( HPyContext *ctx, HPy h_self, HPy other )
 }
 
 
+HPyDef_METH(Solver_hasConstraint, "hasConstraint", HPyFunc_O,
+	.doc = "Check whether the solver contains a constraint.")
 static HPy
-Solver_hasConstraint( HPyContext *ctx, HPy h_self, HPy other )
+Solver_hasConstraint_impl( HPyContext *ctx, HPy h_self, HPy other )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	if( !Constraint::TypeCheck( ctx, other ) ) {
 		// PyErr_Format(
 		//     PyExc_TypeError,
@@ -121,15 +129,17 @@ Solver_hasConstraint( HPyContext *ctx, HPy h_self, HPy other )
 		HPyErr_SetString( ctx, ctx->h_TypeError, "Expected object of type `Constraint`." );
 		return HPy_NULL;
 	}
-	Constraint* cn = Constraint::AsStruct( ctx, other );
+	Constraint* cn = Constraint_AsStruct( ctx, other );
 	return HPy_Dup( ctx, self->solver.hasConstraint( cn->constraint ) ? ctx->h_True : ctx->h_False );
 }
 
 
+HPyDef_METH(Solver_addEditVariable, "addEditVariable", HPyFunc_VARARGS,
+	.doc = "Add an edit variable to the solver.")
 static HPy
-Solver_addEditVariable( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
+Solver_addEditVariable_impl( HPyContext *ctx, HPy h_self, const HPy *args, size_t nargs )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	HPy pyvar;
 	HPy pystrength;
 	if( !HPyArg_Parse(ctx, NULL, args, nargs, "OO", &pyvar, &pystrength ) )
@@ -166,10 +176,12 @@ Solver_addEditVariable( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t narg
 }
 
 
+HPyDef_METH(Solver_removeEditVariable, "removeEditVariable", HPyFunc_O,
+	.doc = "Remove an edit variable from the solver.")
 static HPy
-Solver_removeEditVariable( HPyContext *ctx, HPy h_self, HPy other )
+Solver_removeEditVariable_impl( HPyContext *ctx, HPy h_self, HPy other )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	if( !Variable::TypeCheck( ctx, other ) ) {
 		// PyErr_Format(
 		//     PyExc_TypeError,
@@ -192,10 +204,12 @@ Solver_removeEditVariable( HPyContext *ctx, HPy h_self, HPy other )
 }
 
 
+HPyDef_METH(Solver_hasEditVariable, "hasEditVariable", HPyFunc_O,
+	.doc = "Check whether the solver contains an edit variable.")
 static HPy
-Solver_hasEditVariable( HPyContext *ctx, HPy h_self, HPy other )
+Solver_hasEditVariable_impl( HPyContext *ctx, HPy h_self, HPy other )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	if( !Variable::TypeCheck( ctx, other ) ) {
 		// PyErr_Format(
 		//     PyExc_TypeError,
@@ -209,10 +223,12 @@ Solver_hasEditVariable( HPyContext *ctx, HPy h_self, HPy other )
 }
 
 
+HPyDef_METH(Solver_suggestValue, "suggestValue", HPyFunc_VARARGS,
+	.doc = "Suggest a desired value for an edit variable.")
 static HPy
-Solver_suggestValue( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
+Solver_suggestValue_impl( HPyContext *ctx, HPy h_self, const HPy *args, size_t nargs )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	HPy pyvar;
 	HPy pyvalue;
 	if( !HPyArg_Parse(ctx, NULL, args, nargs, "OO", &pyvar, &pyvalue ) )
@@ -242,19 +258,23 @@ Solver_suggestValue( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
 }
 
 
+HPyDef_METH(Solver_updateVariables, "updateVariables", HPyFunc_NOARGS,
+	.doc = "Update the values of the solver variables.")
 static HPy
-Solver_updateVariables( HPyContext *ctx, HPy h_self )
+Solver_updateVariables_impl( HPyContext *ctx, HPy h_self )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	self->solver.updateVariables();
 	return HPy_Dup( ctx, ctx->h_None );
 }
 
 
+HPyDef_METH(Solver_reset, "reset", HPyFunc_NOARGS,
+	.doc = "Reset the solver to the initial empty starting condition.")
 static HPy
-Solver_reset( HPyContext *ctx, HPy h_self )
+Solver_reset_impl( HPyContext *ctx, HPy h_self )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	self->solver.reset();
 	return HPy_Dup( ctx, ctx->h_None );
 }
@@ -305,67 +325,47 @@ Solver_Print(HPyContext *ctx, HPy op, FILE *fp)
     return;
 }
 
+HPyDef_METH(Solver_dump, "dump", HPyFunc_NOARGS,
+	.doc = "Dump a representation of the solver internals to stdout.")
 static HPy
-Solver_dump( HPyContext *ctx, HPy h_self )
+Solver_dump_impl( HPyContext *ctx, HPy h_self )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	HPy dump_str = HPyUnicode_FromString( ctx, self->solver.dumps().c_str() );
 	Solver_Print( ctx, dump_str, stdout );
 	HPy_Close( ctx, dump_str );
 	return HPy_Dup( ctx, ctx->h_None );
 }
 
+HPyDef_METH(Solver_dumps, "dumps", HPyFunc_NOARGS,
+	.doc = "Dump a representation of the solver internals to a string.")
 static HPy
-Solver_dumps( HPyContext *ctx, HPy h_self )
+Solver_dumps_impl( HPyContext *ctx, HPy h_self )
 {
-    Solver* self = Solver::AsStruct( ctx, h_self );
+    Solver* self = Solver_AsStruct( ctx, h_self );
 	return HPyUnicode_FromString( ctx, self->solver.dumps().c_str() );
 }
 
-HPyDef_METH(Solver_addConstraint_def, "addConstraint", Solver_addConstraint, HPyFunc_O,
-	.doc = "Add a constraint to the solver.")
-HPyDef_METH(Solver_removeConstraint_def, "removeConstraint", Solver_removeConstraint, HPyFunc_O,
-	.doc = "Remove a constraint from the solver.")
-HPyDef_METH(Solver_hasConstraint_def, "hasConstraint", Solver_hasConstraint, HPyFunc_O,
-	.doc = "Check whether the solver contains a constraint.")
-HPyDef_METH(Solver_addEditVariable_def, "addEditVariable", Solver_addEditVariable, HPyFunc_VARARGS,
-	.doc = "Add an edit variable to the solver.")
-HPyDef_METH(Solver_removeEditVariable_def, "removeEditVariable", Solver_removeEditVariable, HPyFunc_O,
-	.doc = "Remove an edit variable from the solver.")
-HPyDef_METH(Solver_hasEditVariable_def, "hasEditVariable", Solver_hasEditVariable, HPyFunc_O,
-	.doc = "Check whether the solver contains an edit variable.")
-HPyDef_METH(Solver_suggestValue_def, "suggestValue", Solver_suggestValue, HPyFunc_VARARGS,
-	.doc = "Suggest a desired value for an edit variable.")
-HPyDef_METH(Solver_updateVariables_def, "updateVariables", Solver_updateVariables, HPyFunc_NOARGS,
-	.doc = "Update the values of the solver variables.")
-HPyDef_METH(Solver_reset_def, "reset", Solver_reset, HPyFunc_NOARGS,
-	.doc = "Reset the solver to the initial empty starting condition.")
-HPyDef_METH(Solver_dump_def, "dump", Solver_dump, HPyFunc_NOARGS,
-	.doc = "Dump a representation of the solver internals to stdout.")
-HPyDef_METH(Solver_dumps_def, "dumps", Solver_dumps, HPyFunc_NOARGS,
-	.doc = "Dump a representation of the solver internals to a string.")
 
 
-HPyDef_SLOT(Solver_dealloc_def, Solver_dealloc, HPy_tp_destroy);
-HPyDef_SLOT(Solver_new_def, Solver_new, HPy_tp_new);
 
 static HPyDef* Solver_defines[] = {
 	// slots
-	&Solver_dealloc_def,
-	&Solver_new_def,
+	&Solver_dealloc,
+	&Solver_new,
 
 	// methods
-	&Solver_addConstraint_def,
-	&Solver_removeConstraint_def,
-	&Solver_hasConstraint_def,
-	&Solver_addEditVariable_def,
-	&Solver_removeEditVariable_def,
-	&Solver_hasEditVariable_def,
-	&Solver_suggestValue_def,
-	&Solver_updateVariables_def,
-	&Solver_reset_def,
-	&Solver_dump_def,
-	&Solver_dumps_def,
+	&Solver_addConstraint,
+	&Solver_removeConstraint,
+	&Solver_hasConstraint,
+	&Solver_addEditVariable,
+	&Solver_removeEditVariable,
+	&Solver_hasEditVariable,
+	&Solver_suggestValue,
+	&Solver_updateVariables,
+	&Solver_reset,
+	&Solver_dump,
+	&Solver_dumps,
 	NULL
 };
 } // namespace

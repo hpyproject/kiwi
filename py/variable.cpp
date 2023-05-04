@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -20,8 +20,9 @@ namespace
 {
 
 
+HPyDef_SLOT(Variable_new, HPy_tp_new)
 static HPy
-Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
+Variable_new_impl( HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kwargs )
 {
 	static const char *kwlist[] = { "name", "context", 0 };
 	HPy context = HPy_NULL;
@@ -75,8 +76,9 @@ Variable_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwarg
 }
 
 
+HPyDef_SLOT(Variable_traverse, HPy_tp_traverse)
 static int
-Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
+Variable_traverse_impl( void* obj, HPyFunc_visitproc visit, void* arg )
 {
     Variable* self = (Variable*) obj;
 	HPy_VISIT( &self->context );
@@ -84,32 +86,38 @@ Variable_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 }
 
 
+HPyDef_SLOT(Variable_dealloc, HPy_tp_destroy)
 static void
-Variable_dealloc(HPyContext *ctx, HPy h_self)
+Variable_dealloc_impl(void *data)
 {
-	Variable* self = Variable::AsStruct( ctx, h_self );
+    Variable *self = (Variable *)data;
 	self->variable.~Variable();
 }
 
 
+HPyDef_SLOT(Variable_repr, HPy_tp_repr)
 static HPy
-Variable_repr( HPyContext *ctx, HPy h_self )
+Variable_repr_impl( HPyContext *ctx, HPy h_self )
 {
     Variable* self = Variable::AsStruct( ctx, h_self );
 	return HPyUnicode_FromString( ctx, self->variable.name().c_str() );
 }
 
 
+HPyDef_METH(Variable_name, "name", HPyFunc_NOARGS,
+	.doc = "Get the name of the variable.")
 static HPy
-Variable_name( HPyContext *ctx, HPy h_self )
+Variable_name_impl( HPyContext *ctx, HPy h_self )
 {
     Variable* self = Variable::AsStruct( ctx, h_self );
 	return HPyUnicode_FromString( ctx, self->variable.name().c_str() );
 }
 
 
+HPyDef_METH(Variable_setName, "setName", HPyFunc_O,
+	.doc = "Set the name of the variable.")
 static HPy
-Variable_setName( HPyContext *ctx, HPy h_self, HPy pystr )
+Variable_setName_impl( HPyContext *ctx, HPy h_self, HPy pystr )
 {
 	Variable* self = Variable::AsStruct( ctx, h_self );
 	if( !HPyUnicode_Check( ctx, pystr ) ) {
@@ -131,8 +139,10 @@ Variable_setName( HPyContext *ctx, HPy h_self, HPy pystr )
 }
 
 
+HPyDef_METH(Variable_context, "context", HPyFunc_NOARGS,
+	.doc = "Get the context object associated with the variable.")
 static HPy
-Variable_context( HPyContext *ctx, HPy h_self )
+Variable_context_impl( HPyContext *ctx, HPy h_self )
 {
     Variable* self = Variable::AsStruct( ctx, h_self );
 	if( !HPyField_IsNull(self->context) ) {
@@ -145,8 +155,10 @@ Variable_context( HPyContext *ctx, HPy h_self )
 }
 
 
+HPyDef_METH(Variable_setContext, "setContext", HPyFunc_O,
+	.doc = "Set the context object associated with the variable.")
 static HPy
-Variable_setContext( HPyContext *ctx, HPy h_self, HPy value )
+Variable_setContext_impl( HPyContext *ctx, HPy h_self, HPy value )
 {
     Variable* self = Variable::AsStruct( ctx, h_self );
 	if( HPyField_IsNull(self->context) || !HPy_Is( ctx, value, HPyField_Load(ctx, h_self, self->context) ) )
@@ -157,51 +169,59 @@ Variable_setContext( HPyContext *ctx, HPy h_self, HPy value )
 }
 
 
+HPyDef_METH(Variable_value, "value", HPyFunc_NOARGS,
+	.doc = "Get the current value of the variable.")
 static HPy
-Variable_value( HPyContext *ctx, HPy h_self )
+Variable_value_impl( HPyContext *ctx, HPy h_self )
 {
     Variable* self = Variable::AsStruct( ctx, h_self );
 	return HPyFloat_FromDouble( ctx, self->variable.value() );
 }
 
 
+HPyDef_SLOT(Variable_add, HPy_nb_add)
 static HPy
-Variable_add( HPyContext *ctx, HPy first, HPy second )
+Variable_add_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinaryAdd, Variable>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Variable_sub, HPy_nb_subtract)
 static HPy
-Variable_sub( HPyContext *ctx, HPy first, HPy second )
+Variable_sub_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinarySub, Variable>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Variable_mul, HPy_nb_multiply)
 static HPy
-Variable_mul( HPyContext *ctx, HPy first, HPy second )
+Variable_mul_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinaryMul, Variable>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Variable_div, HPy_nb_true_divide)
 static HPy
-Variable_div( HPyContext *ctx, HPy first, HPy second )
+Variable_div_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinaryDiv, Variable>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Variable_neg, HPy_nb_negative)
 static HPy
-Variable_neg( HPyContext *ctx, HPy value )
+Variable_neg_impl( HPyContext *ctx, HPy value )
 {
 	return UnaryInvoke<UnaryNeg, Variable>()( ctx, value );
 }
 
 
+HPyDef_SLOT(Variable_richcmp, HPy_tp_richcompare)
 static HPy
-Variable_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
+Variable_richcmp_impl( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
 {
 	switch( op )
 	{
@@ -214,62 +234,45 @@ Variable_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
 		default:
 			break;
 	}
-	// PyErr_Format(
-	// 	PyExc_TypeError,
-	// 	"unsupported operand type(s) for %s: "
-	// 	"'%.100s' and '%.100s'",
-	// 	pyop_str( op ),
-	// 	Py_TYPE( first )->tp_name,
-	// 	Py_TYPE( second )->tp_name
-	// );
-    HPyErr_SetString( ctx, ctx->h_TypeError, "unsupported operand type(s)" );
+	HPy first_type = HPy_Type(ctx, first);
+	HPy second_type = HPy_Type(ctx, second);
+	HPyErr_Format(ctx,
+	 	ctx->h_TypeError,
+	 	"unsupported operand type(s) for %s: "
+	 	"'%.100s' and '%.100s'",
+	 	pyop_str( op ),
+	 	HPyType_GetName(ctx, first_type),
+	 	HPyType_GetName(ctx, second_type)
+	 );
+	HPy_Close(ctx, first_type);
+	HPy_Close(ctx, second_type);
 	return HPy_NULL;
 }
 
 
-HPyDef_METH(Variable_name_def, "name", Variable_name, HPyFunc_NOARGS,
-	.doc = "Get the name of the variable.")
-HPyDef_METH(Variable_setName_def, "setName", Variable_setName, HPyFunc_O,
-	.doc = "Set the name of the variable.")
-HPyDef_METH(Variable_context_def, "context", Variable_context, HPyFunc_NOARGS,
-	.doc = "Get the context object associated with the variable.")
-HPyDef_METH(Variable_setContext_def, "setContext", Variable_setContext, HPyFunc_O,
-	.doc = "Set the context object associated with the variable.")
-HPyDef_METH(Variable_value_def, "value", Variable_value, HPyFunc_NOARGS,
-	.doc = "Get the current value of the variable.")
 
 
-HPyDef_SLOT(Variable_dealloc_def, Variable_dealloc, HPy_tp_finalize)
-HPyDef_SLOT(Variable_traverse_def, Variable_traverse, HPy_tp_traverse)
-HPyDef_SLOT(Variable_repr_def, Variable_repr, HPy_tp_repr)
-HPyDef_SLOT(Variable_richcmp_def, Variable_richcmp, HPy_tp_richcompare)
-HPyDef_SLOT(Variable_new_def, Variable_new, HPy_tp_new)
-HPyDef_SLOT(Variable_add_def, Variable_add, HPy_nb_add)
-HPyDef_SLOT(Variable_sub_def, Variable_sub, HPy_nb_subtract)
-HPyDef_SLOT(Variable_mul_def, Variable_mul, HPy_nb_multiply)
-HPyDef_SLOT(Variable_neg_def, Variable_neg, HPy_nb_negative)
-HPyDef_SLOT(Variable_div_def, Variable_div, HPy_nb_true_divide)
 
 static HPyDef* Variable_defines[] = {
     // slots
-	&Variable_dealloc_def,
-	&Variable_traverse_def,
-	&Variable_repr_def,
-	&Variable_richcmp_def,
-	&Variable_new_def,
-	&Variable_add_def,
-	&Variable_sub_def,
-	&Variable_mul_def,
-	&Variable_neg_def,
-	&Variable_div_def,
-	// &Variable_clear_def
+	&Variable_dealloc,
+	&Variable_traverse,
+	&Variable_repr,
+	&Variable_richcmp,
+	&Variable_new,
+	&Variable_add,
+	&Variable_sub,
+	&Variable_mul,
+	&Variable_neg,
+	&Variable_div,
+	// &Variable_clear
 
     // methods
-	&Variable_name_def,
-	&Variable_setName_def,
-	&Variable_context_def,
-	&Variable_setContext_def,
-	&Variable_value_def,
+	&Variable_name,
+	&Variable_setName,
+	&Variable_context,
+	&Variable_setContext,
+	&Variable_value,
 	NULL
 };
 } // namespace

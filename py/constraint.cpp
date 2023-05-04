@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -18,8 +18,9 @@ namespace kiwisolver
 namespace
 {
 
+HPyDef_SLOT(Constraint_new, HPy_tp_new)
 static HPy
-Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs)
+Constraint_new_impl(HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kwargs)
 {
     static const char *kwlist[] = {"expression", "op", "strength", 0};
     HPy pyexpr;
@@ -69,26 +70,29 @@ Constraint_new(HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwar
     return pycn;
 }
 
-static int Constraint_traverse(void *obj, HPyFunc_visitproc visit, void *arg)
+HPyDef_SLOT(Constraint_traverse, HPy_tp_traverse)
+static int Constraint_traverse_impl(void *obj, HPyFunc_visitproc visit, void *arg)
 {
     Constraint *self = (Constraint *)obj;
     HPy_VISIT(&self->expression);
     return 0;
 }
 
-static void Constraint_dealloc(HPyContext *ctx, HPy h_self)
+HPyDef_SLOT(Constraint_dealloc, HPy_tp_destroy)
+static void Constraint_dealloc_impl(void *data)
 {
-    Constraint* self = Constraint_AsStruct(ctx, h_self);
+    Constraint* self = (Constraint *)data;
     self->constraint.~Constraint();
 }
 
+HPyDef_SLOT(Constraint_repr, HPy_tp_repr)
 static HPy 
-Constraint_repr(HPyContext *ctx, HPy h_self)
+Constraint_repr_impl(HPyContext *ctx, HPy h_self)
 {
     Constraint* self = Constraint_AsStruct(ctx, h_self);
     std::stringstream stream;
     HPy h_expr = HPyField_Load(ctx, h_self, self->expression);
-    Expression *expr = Expression::AsStruct(ctx, h_expr);
+    Expression *expr = Expression_AsStruct(ctx, h_expr);
     double expr_constant = expr->constant;
     HPy expr_terms = HPyField_Load(ctx, h_expr, expr->terms);
     HPy_ssize_t size = HPy_Length(ctx, expr_terms);
@@ -127,15 +131,19 @@ Constraint_repr(HPyContext *ctx, HPy h_self)
     return HPyUnicode_FromString(ctx, stream.str().c_str());
 }
 
+HPyDef_METH(Constraint_expression, "expression", HPyFunc_NOARGS,
+        .doc = "Get the expression object for the constraint.")
 static HPy 
-Constraint_expression(HPyContext *ctx, HPy h_self)
+Constraint_expression_impl(HPyContext *ctx, HPy h_self)
 {
     Constraint* self = Constraint_AsStruct(ctx, h_self);
     return HPyField_Load(ctx, h_self, self->expression);
 }
 
+HPyDef_METH(Constraint_op, "op", HPyFunc_NOARGS,
+        .doc = "Get the relational operator for the constraint.")
 static HPy 
-Constraint_op(HPyContext *ctx, HPy h_self)
+Constraint_op_impl(HPyContext *ctx, HPy h_self)
 {
     Constraint* self = Constraint_AsStruct(ctx, h_self);
     HPy res = HPy_NULL;
@@ -154,15 +162,18 @@ Constraint_op(HPyContext *ctx, HPy h_self)
     return res;
 }
 
+HPyDef_METH(Constraint_strength, "strength", HPyFunc_NOARGS,
+        .doc = "Get the strength for the constraint.")
 static HPy 
-Constraint_strength(HPyContext *ctx, HPy h_self)
+Constraint_strength_impl(HPyContext *ctx, HPy h_self)
 {
-    Constraint* self = Constraint::AsStruct(ctx, h_self);
+    Constraint* self = Constraint_AsStruct(ctx, h_self);
     return HPyFloat_FromDouble(ctx, self->constraint.strength());
 }
 
+HPyDef_SLOT(Constraint_or, HPy_nb_or)
 static HPy 
-Constraint_or(HPyContext *ctx, HPy pyoldcn, HPy value)
+Constraint_or_impl(HPyContext *ctx, HPy pyoldcn, HPy value)
 {
     if (!Constraint::TypeCheck(ctx, pyoldcn))
         std::swap(pyoldcn, value);
@@ -173,7 +184,7 @@ Constraint_or(HPyContext *ctx, HPy pyoldcn, HPy value)
     HPy pynewcn = new_from_global(ctx, Constraint::TypeObject, &newcn);
     if (HPy_IsNull(pynewcn))
         return HPy_NULL;
-    Constraint *oldcn = Constraint::AsStruct(ctx, pyoldcn);
+    Constraint *oldcn = Constraint_AsStruct(ctx, pyoldcn);
     HPy pyoldcn_expr = HPyField_Load(ctx, pyoldcn, oldcn->expression);
     HPyField_Store(ctx, pynewcn, &newcn->expression, pyoldcn_expr);
     HPy_Close( ctx , pyoldcn_expr );
@@ -181,34 +192,19 @@ Constraint_or(HPyContext *ctx, HPy pyoldcn, HPy value)
     return pynewcn;
 }
 
-
-HPyDef_METH(Constraint_expression_def, "expression", Constraint_expression, HPyFunc_NOARGS,
-.doc = "Get the expression object for the constraint.")
-HPyDef_METH(Constraint_op_def, "op", Constraint_op, HPyFunc_NOARGS,
-.doc = "Get the relational operator for the constraint.")
-HPyDef_METH(Constraint_strength_def, "strength", Constraint_strength, HPyFunc_NOARGS,
-.doc = "Get the strength for the constraint.")
-
-
-HPyDef_SLOT(Constraint_dealloc_def, Constraint_dealloc, HPy_tp_finalize)
-HPyDef_SLOT(Constraint_traverse_def, Constraint_traverse, HPy_tp_traverse)
-HPyDef_SLOT(Constraint_repr_def, Constraint_repr, HPy_tp_repr)
-HPyDef_SLOT(Constraint_new_def, Constraint_new, HPy_tp_new)
-HPyDef_SLOT(Constraint_or_def, Constraint_or, HPy_nb_or)
-
 static HPyDef* Constraint_defines[] = {
     // slots
-    &Constraint_dealloc_def,
-    &Constraint_traverse_def,
-    &Constraint_repr_def,
-    &Constraint_new_def,
-    &Constraint_or_def,
-    // &Constraint_clear_def,
+    &Constraint_dealloc,
+    &Constraint_traverse,
+    &Constraint_repr,
+    &Constraint_new,
+    &Constraint_or,
+    // &Constraint_clear,
 
     // methods
-    &Constraint_expression_def,
-    &Constraint_op_def,
-    &Constraint_strength_def,
+    &Constraint_expression,
+    &Constraint_op,
+    &Constraint_strength,
     NULL
 };
 } // namespace

@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -60,7 +60,7 @@ struct Variable
 	}
 
 	static Variable* AsStruct(HPyContext *ctx, HPy obj) {
-		return (Variable*)HPy_AsStruct(ctx, obj);
+		return (Variable*)_HPy_AsStruct_Object(ctx, obj);
 	}
 };
 
@@ -86,7 +86,7 @@ struct Term
 	}
 
 	static Term* AsStruct(HPyContext *ctx, HPy obj) {
-		return (Term*)HPy_AsStruct(ctx, obj);
+		return (Term*)_HPy_AsStruct_Object(ctx, obj);
 	}
 };
 
@@ -112,7 +112,7 @@ struct Expression
 	}
 
 	static Expression* AsStruct(HPyContext *ctx, HPy obj) {
-		return (Expression*)HPy_AsStruct(ctx, obj);
+		return (Expression*)_HPy_AsStruct_Object(ctx, obj);
 	}
 };
 
@@ -138,7 +138,7 @@ struct Constraint
 	}
 
 	static Constraint* AsStruct(HPyContext *ctx, HPy obj) {
-		return (Constraint*)HPy_AsStruct(ctx, obj);
+	    return (Constraint *)_HPy_AsStruct_Object(ctx, obj);
 	}
 };
 
@@ -160,10 +160,6 @@ struct Solver
 		bool result = HPy_TypeCheck( ctx, obj, h_type ) != 0;
 		HPy_Close( ctx , h_type );
 		return result;
-	}
-
-	static Solver* AsStruct(HPyContext *ctx, HPy obj) {
-		return (Solver*)HPy_AsStruct(ctx, obj);
 	}
 };
 

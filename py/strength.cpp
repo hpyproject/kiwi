@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -27,43 +27,42 @@ namespace
 {
 
 
-static void
-strength_dealloc( void* obj )
-{
-	// Py_TYPE( self )->tp_free( self );
-}
-
-
+HPyDef_GET(strength_weak, "weak", .doc = "The predefined weak strength.")
 static HPy
-strength_weak(HPyContext *ctx, HPy h_self, void *closure)
+strength_weak_get(HPyContext *ctx, HPy h_self, void *closure)
 {
 	return HPyFloat_FromDouble( ctx, kiwi::strength::weak );
 }
 
 
+HPyDef_GET(strength_medium, "medium", .doc = "The predefined medium strength.")
 static HPy
-strength_medium(HPyContext *ctx, HPy h_self, void *closure)
+strength_medium_get(HPyContext *ctx, HPy h_self, void *closure)
 {
 	return HPyFloat_FromDouble( ctx, kiwi::strength::medium );
 }
 
 
+HPyDef_GET(strength_strong, "strong", .doc = "The predefined strong strength.")
 static HPy
-strength_strong(HPyContext *ctx, HPy h_self, void *closure)
+strength_strong_get(HPyContext *ctx, HPy h_self, void *closure)
 {
 	return HPyFloat_FromDouble( ctx, kiwi::strength::strong );
 }
 
 
+HPyDef_GET(strength_required, "required", .doc = "The predefined required strength.")
 static HPy
-strength_required(HPyContext *ctx, HPy h_self, void *closure)
+strength_required_get(HPyContext *ctx, HPy h_self, void *closure)
 {
 	return HPyFloat_FromDouble( ctx, kiwi::strength::required );
 }
 
 
+HPyDef_METH(strength_create, "create", HPyFunc_VARARGS,
+	.doc = "Create a strength from constituent values and optional weight.")
 static HPy
-strength_create( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
+strength_create_impl( HPyContext *ctx, HPy h_self, const HPy *args, size_t nargs )
 {
 	HPy pya;
 	HPy pyb;
@@ -85,28 +84,16 @@ strength_create( HPyContext *ctx, HPy h_self, HPy* args, HPy_ssize_t nargs )
 }
 
 
-HPyDef_GET(strength_weak_def, "weak", strength_weak, .doc = "The predefined weak strength.")
-HPyDef_GET(strength_medium_def, "medium", strength_medium, .doc = "The predefined medium strength.")
-HPyDef_GET(strength_strong_def, "strong", strength_strong, .doc = "The predefined strong strength.")
-HPyDef_GET(strength_required_def, "required", strength_required, .doc = "The predefined required strength.")
-
-HPyDef_METH(strength_create_def, "create", strength_create, HPyFunc_VARARGS,
-	.doc = "Create a strength from constituent values and optional weight.")
-
-HPyDef_SLOT(strength_dealloc_def, strength_dealloc, HPy_tp_destroy)
 
 static HPyDef* strength_defines[] = {
-    // slots
-	&strength_dealloc_def,
-
 	// getsets
-	&strength_weak_def,
-	&strength_medium_def,
-	&strength_strong_def,
-	&strength_required_def,
+	&strength_weak,
+	&strength_medium,
+	&strength_strong,
+	&strength_required,
 
 	// methods
-	&strength_create_def,
+	&strength_create,
 	NULL
 };
 } // namespace
@@ -121,7 +108,7 @@ HPyType_Spec strength::TypeObject_Spec = {
 	.basicsize = sizeof( strength ),
 	.itemsize = 0,
 	.flags = HPy_TPFLAGS_DEFAULT,
-    .defines = strength_defines
+    .defines = strength_defines,
 };
 
 
