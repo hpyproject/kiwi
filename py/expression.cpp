@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -18,8 +18,9 @@ namespace kiwisolver
 namespace
 {
 
+HPyDef_SLOT(Expression_new, HPy_tp_new)
 static HPy
-Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
+Expression_new_impl( HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kwargs )
 {
     static const char *kwlist[] = { "terms", "constant", 0 };
     HPy pyterms;
@@ -70,8 +71,9 @@ Expression_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwa
 }
 
 
+HPyDef_SLOT(Expression_traverse, HPy_tp_traverse)
 static int
-Expression_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
+Expression_traverse_impl( void* obj, HPyFunc_visitproc visit, void* arg )
 {
     Expression* self = (Expression*) obj;
     HPy_VISIT( &self->terms );
@@ -79,8 +81,9 @@ Expression_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 }
 
 
+HPyDef_SLOT(Expression_repr, HPy_tp_repr)
 static HPy
-Expression_repr( HPyContext *ctx, HPy h_self )
+Expression_repr_impl( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
     std::stringstream stream;
@@ -108,24 +111,30 @@ Expression_repr( HPyContext *ctx, HPy h_self )
 }
 
 
+HPyDef_METH(Expression_terms, "terms", HPyFunc_NOARGS,
+    .doc = "Get the tuple of terms for the expression.")
 static HPy
-Expression_terms( HPyContext *ctx, HPy h_self )
+Expression_terms_impl( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
     return HPyField_Load(ctx, h_self, self->terms);
 }
 
 
+HPyDef_METH(Expression_constant, "constant", HPyFunc_NOARGS,
+    .doc = "Get the constant for the expression.")
 static HPy
-Expression_constant( HPyContext *ctx, HPy h_self )
+Expression_constant_impl( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
     return HPyFloat_FromDouble( ctx, self->constant );
 }
 
 
+HPyDef_METH(Expression_value, "value", HPyFunc_NOARGS,
+    .doc = "Get the value for the expression.")
 static HPy
-Expression_value( HPyContext *ctx, HPy h_self )
+Expression_value_impl( HPyContext *ctx, HPy h_self )
 {
     Expression* self = Expression::AsStruct( ctx, h_self );
     double result = self->constant;
@@ -151,43 +160,49 @@ Expression_value( HPyContext *ctx, HPy h_self )
 }
 
 
+HPyDef_SLOT(Expression_add, HPy_nb_add)
 static HPy
-Expression_add( HPyContext *ctx, HPy first, HPy second )
+Expression_add_impl( HPyContext *ctx, HPy first, HPy second )
 {
     return BinaryInvoke<BinaryAdd, Expression>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Expression_sub, HPy_nb_subtract)
 static HPy
-Expression_sub( HPyContext *ctx, HPy first, HPy second )
+Expression_sub_impl( HPyContext *ctx, HPy first, HPy second )
 {
     return BinaryInvoke<BinarySub, Expression>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Expression_mul, HPy_nb_multiply)
 static HPy
-Expression_mul( HPyContext *ctx, HPy first, HPy second )
+Expression_mul_impl( HPyContext *ctx, HPy first, HPy second )
 {
     return BinaryInvoke<BinaryMul, Expression>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Expression_div, HPy_nb_true_divide)
 static HPy
-Expression_div( HPyContext *ctx, HPy first, HPy second )
+Expression_div_impl( HPyContext *ctx, HPy first, HPy second )
 {
     return BinaryInvoke<BinaryDiv, Expression>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Expression_neg, HPy_nb_negative)
 static HPy
-Expression_neg( HPyContext *ctx, HPy value )
+Expression_neg_impl( HPyContext *ctx, HPy value )
 {
     return UnaryInvoke<UnaryNeg, Expression>()( ctx, value );
 }
 
 
+HPyDef_SLOT(Expression_richcmp, HPy_tp_richcompare)
 static HPy
-Expression_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
+Expression_richcmp_impl( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
 {
     switch( op )
     {
@@ -200,53 +215,41 @@ Expression_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
         default:
             break;
     }
-    // PyErr_Format(
-    //     PyExc_TypeError,
-    //     "unsupported operand type(s) for %s: "
-    //     "'%.100s' and '%.100s'",
-    //     pyop_str( op ),
-    //     Py_TYPE( first )->tp_name,
-    //     Py_TYPE( second )->tp_name
-    // );
-    HPyErr_SetString( ctx, ctx->h_TypeError, "unsupported operand type(s)" );
+    HPy first_type = HPy_Type(ctx, first);
+    HPy second_type = HPy_Type(ctx, second);
+    HPyErr_Format(ctx,
+         ctx->h_TypeError,
+         "unsupported operand type(s) for %s: "
+         "'%.100s' and '%.100s'",
+         pyop_str( op ),
+         HPyType_GetName(ctx, first_type),
+         HPyType_GetName(ctx, second_type)
+     );
+    HPy_Close(ctx, first_type);
+    HPy_Close(ctx, second_type);
     return HPy_NULL;
 }
 
 
-HPyDef_METH(Expression_terms_def, "terms", Expression_terms, HPyFunc_NOARGS,
-    .doc = "Get the tuple of terms for the expression.")
-HPyDef_METH(Expression_constant_def, "constant", Expression_constant, HPyFunc_NOARGS,
-    .doc = "Get the constant for the expression.")
-HPyDef_METH(Expression_value_def, "value", Expression_value, HPyFunc_NOARGS,
-    .doc = "Get the value for the expression.")
 
 
-HPyDef_SLOT(Expression_traverse_def, Expression_traverse, HPy_tp_traverse)  /* tp_traverse */
-HPyDef_SLOT(Expression_repr_def, Expression_repr, HPy_tp_repr)              /* tp_repr */
-HPyDef_SLOT(Expression_richcmp_def, Expression_richcmp, HPy_tp_richcompare) /* tp_richcompare */
-HPyDef_SLOT(Expression_new_def, Expression_new, HPy_tp_new)                 /* tp_new */
-HPyDef_SLOT(Expression_add_def, Expression_add, HPy_nb_add)                 /* nb_add */
-HPyDef_SLOT(Expression_sub_def, Expression_sub, HPy_nb_subtract)            /* nb_sub */
-HPyDef_SLOT(Expression_mul_def, Expression_mul, HPy_nb_multiply)            /* nb_mul */
-HPyDef_SLOT(Expression_neg_def, Expression_neg, HPy_nb_negative)            /* nb_neg */
-HPyDef_SLOT(Expression_div_def, Expression_div, HPy_nb_true_divide)         /* nb_div */
 
 static HPyDef* Expression_defines[] = {
     // slots
-    &Expression_traverse_def,
-    &Expression_repr_def,
-    &Expression_richcmp_def,
-    &Expression_new_def,
-    &Expression_add_def,
-    &Expression_sub_def,
-    &Expression_mul_def,
-    &Expression_neg_def,
-    &Expression_div_def,
+    &Expression_traverse,
+    &Expression_repr,
+    &Expression_richcmp,
+    &Expression_new,
+    &Expression_add,
+    &Expression_sub,
+    &Expression_mul,
+    &Expression_neg,
+    &Expression_div,
 
     // methods
-    &Expression_terms_def,
-    &Expression_constant_def,
-    &Expression_value_def,
+    &Expression_terms,
+    &Expression_constant,
+    &Expression_value,
     NULL
 };
 } // namespace

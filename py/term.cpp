@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
 | Copyright (c) 2013-2019, Nucleic Development Team.
-| Copyright (c) 2022, Oracle and/or its affiliates.
+| Copyright (c) 2022-2023, Oracle and/or its affiliates.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -20,8 +20,9 @@ namespace
 {
 
 
+HPyDef_SLOT(Term_new, HPy_tp_new)
 static HPy
-Term_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
+Term_new_impl( HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kwargs )
 {
 	static const char *kwlist[] = { "variable", "coefficient", 0 };
 	HPy pyvar;
@@ -59,8 +60,9 @@ Term_new( HPyContext *ctx, HPy type, HPy* args, HPy_ssize_t nargs, HPy kwargs )
 
 
 
+HPyDef_SLOT(Term_traverse, HPy_tp_traverse)
 static int
-Term_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
+Term_traverse_impl( void* obj, HPyFunc_visitproc visit, void* arg )
 {
 	Term *t = (Term*) obj;
 	HPy_VISIT(&t->variable);
@@ -68,8 +70,9 @@ Term_traverse( void* obj, HPyFunc_visitproc visit, void* arg )
 }
 
 
+HPyDef_SLOT(Term_repr, HPy_tp_repr)
 static HPy
-Term_repr( HPyContext *ctx, HPy h_self )
+Term_repr_impl( HPyContext *ctx, HPy h_self )
 {
 	Term* self = Term::AsStruct(ctx, h_self);
 	std::stringstream stream;
@@ -81,24 +84,30 @@ Term_repr( HPyContext *ctx, HPy h_self )
 }
 
 
+HPyDef_METH(Term_variable, "variable", HPyFunc_NOARGS,
+	.doc = "Get the variable for the term.")
 static HPy
-Term_variable( HPyContext *ctx, HPy h_self )
+Term_variable_impl( HPyContext *ctx, HPy h_self )
 {
 	Term* self = Term::AsStruct(ctx, h_self);
 	return HPyField_Load( ctx , h_self ,  self->variable );
 }
 
 
+HPyDef_METH(Term_coefficient, "coefficient", HPyFunc_NOARGS,
+	.doc = "Get the coefficient for the term.")
 static HPy
-Term_coefficient( HPyContext *ctx, HPy h_self )
+Term_coefficient_impl( HPyContext *ctx, HPy h_self )
 {
 	Term* self = Term::AsStruct(ctx, h_self);
 	return HPyFloat_FromDouble( ctx, self->coefficient );
 }
 
 
+HPyDef_METH(Term_value, "value", HPyFunc_NOARGS,
+	.doc = "Get the value for the term.")
 static HPy
-Term_value( HPyContext *ctx, HPy h_self )
+Term_value_impl( HPyContext *ctx, HPy h_self )
 {
 	Term* self = Term::AsStruct(ctx, h_self);
 	HPy self_var = HPyField_Load( ctx , h_self , self->variable );
@@ -109,43 +118,49 @@ Term_value( HPyContext *ctx, HPy h_self )
 }
 
 
+HPyDef_SLOT(Term_add, HPy_nb_add)
 static HPy
-Term_add( HPyContext *ctx, HPy first, HPy second )
+Term_add_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinaryAdd, Term>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Term_sub, HPy_nb_subtract)
 static HPy
-Term_sub( HPyContext *ctx, HPy first, HPy second )
+Term_sub_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinarySub, Term>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Term_mul, HPy_nb_multiply)
 static HPy
-Term_mul( HPyContext *ctx, HPy first, HPy second )
+Term_mul_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinaryMul, Term>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Term_div, HPy_nb_true_divide)
 static HPy
-Term_div( HPyContext *ctx, HPy first, HPy second )
+Term_div_impl( HPyContext *ctx, HPy first, HPy second )
 {
 	return BinaryInvoke<BinaryDiv, Term>()( ctx, first, second );
 }
 
 
+HPyDef_SLOT(Term_neg, HPy_nb_negative)
 static HPy
-Term_neg( HPyContext *ctx, HPy value )
+Term_neg_impl( HPyContext *ctx, HPy value )
 {
 	return UnaryInvoke<UnaryNeg, Term>()( ctx, value );
 }
 
 
+HPyDef_SLOT(Term_richcmp, HPy_tp_richcompare)
 static HPy
-Term_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
+Term_richcmp_impl( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
 {
 	switch( op )
 	{
@@ -171,42 +186,27 @@ Term_richcmp( HPyContext *ctx, HPy first, HPy second, HPy_RichCmpOp op )
 }
 
 
-HPyDef_METH(Term_variable_def, "variable", Term_variable, HPyFunc_NOARGS,
-	.doc = "Get the variable for the term.")
-HPyDef_METH(Term_coefficient_def, "coefficient", Term_coefficient, HPyFunc_NOARGS,
-	.doc = "Get the coefficient for the term.")
-HPyDef_METH(Term_value_def, "value", Term_value, HPyFunc_NOARGS,
-	.doc = "Get the value for the term.")
 
 
-HPyDef_SLOT(Term_traverse_def, Term_traverse, HPy_tp_traverse)    /* tp_traverse */
-HPyDef_SLOT(Term_repr_def, Term_repr, HPy_tp_repr)            /* tp_repr */
-HPyDef_SLOT(Term_richcmp_def, Term_richcmp, HPy_tp_richcompare)  /* tp_richcompare */
-HPyDef_SLOT(Term_new_def, Term_new, HPy_tp_new)              /* tp_new */
-HPyDef_SLOT(Term_add_def, Term_add, HPy_nb_add)              /* nb_add */
-HPyDef_SLOT(Term_sub_def, Term_sub, HPy_nb_subtract)         /* nb_subatract */
-HPyDef_SLOT(Term_mul_def, Term_mul, HPy_nb_multiply)         /* nb_multiply */
-HPyDef_SLOT(Term_neg_def, Term_neg, HPy_nb_negative)         /* nb_negative */
-HPyDef_SLOT(Term_div_def, Term_div, HPy_nb_true_divide)      /* nb_true_divide */
 
 
 static HPyDef* Term_defines[] = {
     // slots
-	&Term_traverse_def,
-	&Term_repr_def,
-	&Term_richcmp_def,
-	&Term_new_def,
-	&Term_add_def,
-	&Term_sub_def,
-	&Term_mul_def,
-	&Term_neg_def,
-	&Term_div_def,
-	// Term_clear_def,
+	&Term_traverse,
+	&Term_repr,
+	&Term_richcmp,
+	&Term_new,
+	&Term_add,
+	&Term_sub,
+	&Term_mul,
+	&Term_neg,
+	&Term_div,
+	// Term_clear,
 
     // methods
-	&Term_variable_def,
-	&Term_coefficient_def,
-	&Term_value_def,
+	&Term_variable,
+	&Term_coefficient,
+	&Term_value,
     NULL
 };
 } // namespace
